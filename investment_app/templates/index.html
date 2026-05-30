@@ -742,7 +742,7 @@ function renderMarketTable(data) {
     if (d.demo) anyDemo = true;
     const cls = (d.change_pct||0)>=0?"price-up":"price-down";
     const dm = d.demo ? " *" : "";
-    html += "<tr><td><b>"+c+"</b></td><td>$"+d.price?.toLocaleString()+dm+"</td><td class='"+cls+"'>"+(d.change_pct||0).toFixed(2)+"%</td></tr>";
+    html += "<tr><td><b>"+c+"</b></td><td>$"+formatPriceDisplay(d.price)+dm+"</td><td class='"+cls+"'>"+(d.change_pct||0).toFixed(2)+"%</td></tr>";
   }
   html += "</table>";
   html += "<div style='margin-top:8px;font-size:11px;color:#8090b0;'>";
@@ -871,6 +871,29 @@ function copyStrategyToAll() {
     : "Applied SL(" + sharedMaxLoss + "%)/TP(1:" + sharedTargetRR + ")/Leverage(" + sharedLeverage + "x) to all coins. Support/resistance per-coin preserved.");
 }
 
+function formatPriceForInput(price) {
+  // Smart price formatting: preserve decimal places based on price magnitude
+  // Small coins (SHIB, DOGE, etc.) need more decimal places
+  if (price === null || price === undefined || isNaN(price)) return "";
+  const absPrice = Math.abs(price);
+  if (absPrice >= 1000) return price.toFixed(2);       // $1,000+ → 2 decimals
+  if (absPrice >= 1) return price.toFixed(4);           // $1-$999 → 4 decimals
+  if (absPrice >= 0.01) return price.toFixed(6);        // $0.01-$0.99 → 6 decimals
+  return price.toFixed(8);                               // <$0.01 → 8 decimals
+}
+
+function formatPriceDisplay(price) {
+  // Smart price display with locale formatting and adequate decimal places
+  if (price === null || price === undefined || isNaN(price)) return "-";
+  const absPrice = Math.abs(price);
+  let decimals;
+  if (absPrice >= 1000) decimals = 2;
+  else if (absPrice >= 1) decimals = 4;
+  else if (absPrice >= 0.01) decimals = 6;
+  else decimals = 8;
+  return price.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
 async function autoFillFibLevels() {
   const sym = currentStrategyCoin;
   // Skip if this coin already has user-set values
@@ -901,10 +924,10 @@ async function autoFillFibLevels() {
       // Again check coin hasn't changed (parsing might have taken time)
       if (currentStrategyCoin !== sym || myFetchId !== fibFetchId) return;
       if (fib.support && fib.support[1] && fib.support[1] > 0) {
-        document.getElementById("supLevel").value = Math.round(fib.support[1]);
+        document.getElementById("supLevel").value = formatPriceForInput(fib.support[1]);
       }
       if (fib.resistance && fib.resistance[1] && fib.resistance[1] > 0) {
-        document.getElementById("resLevel").value = Math.round(fib.resistance[1]);
+        document.getElementById("resLevel").value = formatPriceForInput(fib.resistance[1]);
       }
     }
   } catch(e) {
@@ -1120,7 +1143,7 @@ function renderAnalysis(d) {
   let html = "";
   html += "<div style='display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;'>";
   html += "<b style='font-size:1.2em;'>"+d.symbol+"</b>";
-  html += "<span style='font-size:1.1em;'>$"+d.price?.toLocaleString()+"</span>";
+  html += "<span style='font-size:1.1em;'>$"+formatPriceDisplay(d.price)+"</span>";
   const bcls = d.signal.includes("buy")?"buy":d.signal.includes("sell")?"sell":"hold";
   html += "<span class='badge badge-"+bcls+"'>"+sn+"</span>";
   html += "<span style='color:#8090b0;'>"+t("score")+": "+sc+"/100</span>";
@@ -1195,7 +1218,7 @@ function renderContractAnalysis(d) {
   // Header: symbol + price + direction badge
   html += "<div style='display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;'>";
   html += "<b style='font-size:1.2em;'>"+d.symbol+"</b>";
-  html += "<span style='font-size:1.1em;'>$"+d.price?.toLocaleString()+"</span>";
+  html += "<span style='font-size:1.1em;'>$"+formatPriceDisplay(d.price)+"</span>";
   const dir = d.direction;
   const dirLabel = currentLang === "zh" ? (d.signal_cn || dir) : (d.signal_en || dir);
   const dirClass = dir === "long" ? "direction-long" : (dir === "short" ? "direction-short" : "direction-hold");
@@ -1280,11 +1303,11 @@ function renderContractAnalysis(d) {
     html += "<div class='entry-card "+cardCls+"'>";
     html += "<b style='color:"+cardColor+";'>"+(isLong ? t("entry_suggestion") : t("short_entry_suggestion"))+"</b><br>";
     html += "<table style='margin-top:8px;font-size:13px;'>";
-    html += "<tr><td style='color:#8090b0;'>"+t("entry_price_label")+"</td><td><b>$"+d.entry.price?.toLocaleString()+"</b></td></tr>";
-    html += "<tr><td style='color:#8090b0;'>"+t("stop_loss")+"</td><td style='color:#ef5350;'><b>$"+d.entry.stop_loss?.toLocaleString()+"</b> <span style='font-size:11px;color:#8090b0;'>(-"+d.entry.stop_loss_pct+"% <i>"+(d.entry.stop_loss_source||"")+"</i>)</span></td></tr>";
-    html += "<tr><td style='color:#8090b0;'>"+t("take_profit_1")+"</td><td style='color:#00e676;'><b>$"+d.entry.take_profit_1?.toLocaleString()+"</b> <span style='font-size:11px;color:#8090b0;'>"+(isLong?'+':'')+d.entry.take_profit_1_pct+"%</span></td></tr>";
+    html += "<tr><td style='color:#8090b0;'>"+t("entry_price_label")+"</td><td><b>$"+formatPriceDisplay(d.entry.price)+"</b></td></tr>";
+    html += "<tr><td style='color:#8090b0;'>"+t("stop_loss")+"</td><td style='color:#ef5350;'><b>$"+formatPriceDisplay(d.entry.stop_loss)+"</b> <span style='font-size:11px;color:#8090b0;'>(-"+d.entry.stop_loss_pct+"% <i>"+(d.entry.stop_loss_source||"")+"</i>)</span></td></tr>";
+    html += "<tr><td style='color:#8090b0;'>"+t("take_profit_1")+"</td><td style='color:#00e676;'><b>$"+formatPriceDisplay(d.entry.take_profit_1)+"</b> <span style='font-size:11px;color:#8090b0;'>"+(isLong?'+':'')+d.entry.take_profit_1_pct+"%</span></td></tr>";
     if (d.entry.take_profit_2) {
-      html += "<tr><td style='color:#8090b0;'>"+t("take_profit_2")+"</td><td style='color:#00e676;'><b>$"+d.entry.take_profit_2?.toLocaleString()+"</b></td></tr>";
+      html += "<tr><td style='color:#8090b0;'>"+t("take_profit_2")+"</td><td style='color:#00e676;'><b>$"+formatPriceDisplay(d.entry.take_profit_2)+"</b></td></tr>";
     }
     html += "<tr><td style='color:#8090b0;'>"+t("risk_reward")+"</td><td><b>1:"+d.entry.risk_reward+"</b> <span style='font-size:11px;color:#8090b0;'>(净盈亏比 1:"+d.entry.net_rr+")</span></td></tr>";
     html += "</table>";
@@ -1419,8 +1442,8 @@ function renderPlan(plan, analyses) {
       html += "<td><span class='badge badge-"+(a.action==="buy"?"buy":"sell")+"'>"+t(a.action)?.toUpperCase()+"</span></td>";
       html += "<td><b>"+a.symbol+"</b></td>";
       html += "<td>$"+(a.alloc_amount?.toLocaleString()||a.amount||"-")+"</td>";
-      html += "<td>"+(a.entry_price||"-")+"</td>";
-      html += "<td>"+(a.stop_loss||"-")+"</td>";
+      html += "<td>$"+formatPriceDisplay(a.entry_price)+"</td>";
+      html += "<td style='color:#ef5350;'>$"+formatPriceDisplay(a.stop_loss)+"</td>";
       html += "<td style='color:"+scoreColor(a.score||50)+";'>"+(a.score||"-")+"</td>";
       html += "<td style='font-size:12px;color:#c0c8d0;max-width:300px;'>";
       html += "<div style='white-space:pre-line;line-height:1.5;'>"+reasonText+"</div>";
@@ -1438,7 +1461,7 @@ function renderPlan(plan, analyses) {
     analyses.forEach(function(a,i) {
       html += "<tr>";
       html += "<td>"+(i+1)+"</td><td><b>"+a.symbol+"</b></td>";
-      html += "<td>$"+a.price?.toLocaleString()+"</td>";
+      html += "<td>$"+formatPriceDisplay(a.price)+"</td>";
       html += "<td><span class='signal-"+a.signal+"'>"+t(a.signal)+"</span></td>";
       html += "<td style='color:"+scoreColor(a.score)+";font-weight:bold;'>"+a.score+"</td>";
       html += "<td>"+a.macd?.strength+"</td><td>"+a.volume?.score+"</td><td>"+a.fibonacci?.score+"</td>";
@@ -1531,9 +1554,9 @@ function renderContractPlan(plan, analyses) {
       html += "<td><span class='direction-badge "+badgeCls+"' style='font-size:11px;'>"+badgeText+"</span></td>";
       html += "<td><b>"+a.symbol+"</b></td>";
       html += "<td>$"+(a.alloc_amount?.toLocaleString()||a.amount||"-")+"</td>";
-      html += "<td>$"+(a.entry_price?.toLocaleString()||"-")+"</td>";
-      html += "<td style='color:#ef5350;'>$"+(a.stop_loss?.toLocaleString()||"-")+(a.stop_loss_source?" <span style='font-size:10px;color:#8090b0;'>"+(a.stop_loss_source)+"</span>":"")+"</td>";
-      html += "<td><span style='color:#00e676;'>$"+(a.take_profit_1?.toLocaleString()||"-")+"</span> / $"+(a.take_profit_2?.toLocaleString()||"-")+"</td>";
+      html += "<td>$"+formatPriceDisplay(a.entry_price)+"</td>";
+      html += "<td style='color:#ef5350;'>$"+formatPriceDisplay(a.stop_loss)+(a.stop_loss_source?" <span style='font-size:10px;color:#8090b0;'>"+(a.stop_loss_source)+"</span>":"")+"</td>";
+      html += "<td><span style='color:#00e676;'>$"+formatPriceDisplay(a.take_profit_1)+"</span> / $"+formatPriceDisplay(a.take_profit_2)+"</td>";
       html += "<td><b>1:"+(a.risk_reward||"-")+"</b></td>";
       html += "<td>";
       html += "<span style='color:#00e676;'>"+a.long_score+"</span>/<span style='color:#ef5350;'>"+a.short_score+"</span>";
@@ -1559,7 +1582,7 @@ function renderContractPlan(plan, analyses) {
       var ind = a.indicators || {};
       html += "<tr>";
       html += "<td>"+(i+1)+"</td><td><b>"+a.symbol+"</b></td>";
-      html += "<td>$"+a.price?.toLocaleString()+"</td>";
+      html += "<td>$"+formatPriceDisplay(a.price)+"</td>";
       html += "<td><span class='direction-badge "+dirBadge+"' style='font-size:11px;'>"+dirLabel+"</span></td>";
       html += "<td><span style='color:#00e676;'>"+a.long_score+"</span>/<span style='color:#ef5350;'>"+a.short_score+"</span></td>";
       html += "<td>"+(ind.rsi?.rsi||"-")+"</td>";

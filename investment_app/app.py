@@ -58,7 +58,48 @@ CG_IDS = {
     "BTC":"bitcoin","ETH":"ethereum","SOL":"solana","BNB":"binancecoin",
     "XRP":"ripple","DOGE":"dogecoin","ADA":"cardano","AVAX":"avalanche-2",
     "DOT":"polkadot","LINK":"chainlink","MATIC":"matic-network",
-    "UNI":"uniswap","ATOM":"cosmos","LTC":"litecoin"
+    "UNI":"uniswap","ATOM":"cosmos","LTC":"litecoin",
+    "TRX":"tron","NEAR":"near","APT":"aptos","SUI":"sui",
+    "ARB":"arbitrum","OP":"optimism","FIL":"filecoin","ETC":"ethereum-classic",
+    "INJ":"injective-protocol","TIA":"celestia","SEI":"sei-network",
+    "RUNE":"thorchain","FET":"fetch-ai","RENDER":"render-token",
+    "PEPE":"pepe","WIF":"dogwifcoin","BONK":"bonk",
+    "JUP":"jupiter-exchange-solana","PYTH":"pyth-network",
+    "STRK":"starknet","ENA":"ethena","W":"wormhole","OMNI":"omni-network",
+    "TAO":"bittensor","WLD":"worldcoin-wld","ARKM":"arkham",
+    "PENDLE":"pendle","ENA":"ethena","EIGEN":"eigenlayer",
+    "ZRO":"layerzero","ZK":"zksync","NOT":"notcoin",
+    "TON":"the-open-network","DOGS":"dogs","HMSTR":"hamster-kombat",
+    "CATI":"catizen","MAJOR":"major","MEMEFI":"memefi",
+    # Extra high-vol coins often traded on OKX
+    "ORDI":"ordinals","SATS":"sats-ordinals","RATS":"rats",
+    "1000SATS":"sats-ordinals","1000PEPE":"pepe","1000BONK":"bonk",
+    "1000FLOKI":"floki","FLOKI":"floki","SHIB":"shiba-inu",
+    "PEOPLE":"constitutiondao","YGG":"yield-guild-games",
+    "MAGIC":"magic","STX":"blockstack","ICP":"internet-computer",
+    "APT":"aptos","SUI":"sui","XAI":"xai-blockchain",
+    "ACE":"fusionist","NFP":"nfprompt-token","AI":"sleepless-ai",
+    "XEC":"ecash","BCH":"bitcoin-cash","AAVE":"aave",
+    "CRV":"curve-dao-token","DYDX":"dydx","SAND":"the-sandbox",
+    "MANA":"decentraland","AXS":"axie-infinity","GALA":"gala",
+    "ENS":"ethereum-name-service","LDO":"lido-dao","GMX":"gmx",
+    "SNX":"synthetix-network-token","COMP":"compound-governance-token",
+    "MKR":"maker","GRT":"the-graph","ALGO":"algorand",
+    "VET":"vechain","FTM":"fantom","EGLD":"multiversx-egld",
+    "FLOW":"flow","XTZ":"tezos","THETA":"theta-token",
+    "QNT":"quant-network","IMX":"immutable-x","MINA":"mina-protocol",
+    "BLUR":"blur","1INCH":"1inch","BAT":"basic-attention-token",
+    "ZRX":"0x","KNC":"kyber-network-crystal","BAL":"balancer",
+    "SUSHI":"sushi","YFI":"yearn-finance","CELO":"celo",
+    "KAVA":"kava","ROSE":"oasis-network","IOTA":"iota",
+    "ZIL":"zilliqa","ONE":"harmony","KSM":"kusama",
+    "ANT":"aragon","OCEAN":"ocean-protocol","AGIX":"singularitynet",
+    "CFX":"conflux-token","MASK":"mask-network","SSV":"ssv-network",
+    "LRC":"loopring","ANKR":"ankr","COTI":"coti",
+    "BAND":"band-protocol","STORJ":"storj","SKL":"skale",
+    "CTSI":"cartesi","CVC":"civic","DENT":"dent",
+    "CHZ":"chiliz","HOT":"holotoken","ENJ":"enjincoin",
+    "SLP":"smooth-love-potion","ILV":"illuvium","GODS":"gods-unchained",
 }
 
 # ---- Smart Proxy Auto-Detection ----
@@ -201,7 +242,22 @@ def _check_network():
         DEMO_MODE = not _network_ok
         return _network_ok
 
-CRYPTO_LIST = ["BTC","ETH","SOL","BNB","XRP","DOGE","ADA","AVAX","DOT","LINK","MATIC","UNI","ATOM","LTC"]
+CRYPTO_LIST = [
+    "BTC","ETH","SOL","BNB","XRP","DOGE","ADA","AVAX","DOT","LINK",
+    "MATIC","UNI","ATOM","LTC","TRX","NEAR","FIL","ETC","APT","SUI",
+    "ARB","OP","INJ","TIA","SEI","RUNE","FET","RENDER",
+    "PEPE","WIF","BONK","FLOKI","SHIB","PEOPLE",
+    "JUP","PYTH","STRK","TAO","WLD","ARKM","PENDLE",
+    "ORDI","SATS","STX","ICP","AAVE","CRV","SAND",
+    "MANA","AXS","GALA","ENS","LDO","GMX",
+    "MKR","GRT","ALGO","VET","FTM","FLOW","THETA","QNT","IMX",
+    "CHZ","ENJ","BAT","ZRX","SUSHI","YFI","1INCH",
+    "CFX","MASK","SSV","BAND","ANKR","COTI",
+    # Less common coins — still try to fetch; if no exchange data, demo fallback
+    "TON","NOT","HMSTR","CATI","MAJOR",
+    "XAI","ACE","NFP","AI","XEC","BCH",
+    "EGLD","XTZ","MINA","BLUR","KAVA","ROSE",
+]
 
 # ---- Multi-source price fetcher ----
 def _parse_binance_ticker(data, sym):
@@ -347,7 +403,7 @@ def _race_fetch_price(symbol):
         price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
         if price and price > 0:
             return {
-                "price": round(price, 2),
+                "price": round(price, 10),
                 "change_pct": round(info.get("regularMarketChangePercent", 0) or 0, 2),
                 "name": info.get("shortName", sym), "currency": "USD", "source": "yahoo"
             }
@@ -361,7 +417,27 @@ DEMO_PRICES = {
     "BTC": 87000, "ETH": 3200, "SOL": 145, "BNB": 610,
     "XRP": 0.52, "DOGE": 0.12, "ADA": 0.45, "AVAX": 35,
     "DOT": 7.5, "LINK": 15, "MATIC": 0.75, "UNI": 8.5,
-    "ATOM": 9, "LTC": 80
+    "ATOM": 9, "LTC": 80, "TRX": 0.11, "NEAR": 5.5,
+    "FIL": 6.5, "ETC": 25, "APT": 9, "SUI": 1.8,
+    "ARB": 1.2, "OP": 2.5, "INJ": 25, "TIA": 8,
+    "SEI": 0.45, "RUNE": 5, "FET": 1.5, "RENDER": 7,
+    "PEPE": 0.00001, "WIF": 2.5, "BONK": 0.00002, "FLOKI": 0.0002,
+    "SHIB": 0.000025, "PEOPLE": 0.08, "JUP": 1.2, "PYTH": 0.45,
+    "STRK": 1.5, "TAO": 450, "WLD": 3, "ARKM": 1.8,
+    "PENDLE": 5, "ORDI": 40, "SATS": 0.0000003, "STX": 2,
+    "ICP": 12, "AAVE": 150, "CRV": 0.5, "SAND": 0.6,
+    "MANA": 0.45, "AXS": 7, "GALA": 0.04, "ENS": 25,
+    "LDO": 2.5, "GMX": 50, "MKR": 2500, "GRT": 0.25,
+    "ALGO": 0.2, "VET": 0.035, "FTM": 0.7, "FLOW": 0.9,
+    "THETA": 2, "QNT": 100, "IMX": 1.8, "EGLD": 40,
+    "XTZ": 1, "MINA": 0.8, "BLUR": 0.35, "KAVA": 0.7,
+    "ROSE": 0.08, "CHZ": 0.1, "ENJ": 0.35, "BAT": 0.25,
+    "ZRX": 0.4, "SUSHI": 1.2, "YFI": 8000, "1INCH": 0.4,
+    "CFX": 0.2, "MASK": 3.5, "SSV": 25, "BAND": 1.5,
+    "ANKR": 0.04, "COTI": 0.1, "BCH": 450, "TON": 5.5,
+    "NOT": 0.008, "HMSTR": 0.003, "XAI": 0.5, "XEC": 0.00004,
+    "ACE": 3, "NFP": 0.5, "AI": 0.8, "1000SATS": 0.0003,
+    "1000PEPE": 0.01, "1000BONK": 0.02, "1000FLOKI": 0.2,
 }
 
 def get_price(symbol):
@@ -373,13 +449,25 @@ def get_price(symbol):
 
     # Demo fallback
     sym = symbol.upper().replace("/USDT","").replace("-USD","")
+    import random
+    random.seed(int(time.time()/60) + hash(sym))
     if sym in DEMO_PRICES:
-        import random
-        random.seed(int(time.time()/60) + hash(sym))
         price = DEMO_PRICES[sym] * (1 + random.uniform(-0.03, 0.03))
-        return {"price": round(price, 2), "change_pct": round(random.uniform(-3, 3), 2),
-                "name": sym, "currency": "USDT", "demo": True}
-    raise ValueError(f"Cannot fetch price for {symbol}")
+    else:
+        # Generate a reasonable synthetic price for unknown coins
+        # Use hash to get a stable pseudo-random base price
+        seed_val = abs(hash(sym)) % 100000
+        if seed_val < 100:
+            base_price = 1 + seed_val / 50  # $1 - $3 range
+        elif seed_val < 5000:
+            base_price = 0.01 + seed_val / 500  # $0.01 - $10 range
+        elif seed_val < 50000:
+            base_price = 10 + seed_val / 200  # $10 - $260 range
+        else:
+            base_price = 100 + seed_val / 50  # $100 - $2100 range
+        price = base_price * (1 + random.uniform(-0.03, 0.03))
+    return {"price": round(price, 10), "change_pct": round(random.uniform(-3, 3), 2),
+            "name": sym, "currency": "USDT", "demo": True}
 
 def get_klines(symbol, interval="1d", limit=200):
     """Get klines - try Binance, then Yahoo, fallback to demo"""
@@ -417,29 +505,38 @@ def get_klines(symbol, interval="1d", limit=200):
 
     # Demo data fallback
     sym = symbol.upper().replace("/USDT","").replace("-USD","")
+    import random
+    random.seed(hash(sym) % 10000)
+    np.random.seed(hash(sym) % 10000)
     if sym in DEMO_PRICES:
-        import random
-        random.seed(hash(sym) % 10000)
-        np.random.seed(hash(sym) % 10000)
         base = DEMO_PRICES[sym]
-        dates = pd.date_range(end=datetime.now(), periods=limit, freq="D")
-        trend = np.linspace(0, base * 0.1, limit)
-        cycles = base * 0.05 * np.sin(np.linspace(0, 6*np.pi, limit))
-        noise = np.random.normal(0, base * 0.01, limit)
-        close = base - base * 0.05 + trend + cycles + noise
-        close = np.maximum(close, base * 0.5)
-        high = close + np.abs(np.random.normal(0, base * 0.015, limit))
-        low = close - np.abs(np.random.normal(0, base * 0.015, limit))
-        open_p = low + np.random.random(limit) * (high - low)
-        volume = np.random.normal(base * 100, base * 30, limit)
-        volume = np.maximum(volume, 100)
-        df = pd.DataFrame({
-            "open": open_p, "high": high, "low": low,
-            "close": close, "volume": volume
-        }, index=dates)
-        return df
-
-    raise ValueError(f"Cannot fetch klines for {symbol}")
+    else:
+        # Generate synthetic base price for unknown coins
+        seed_val = abs(hash(sym)) % 100000
+        if seed_val < 100:
+            base = 1 + seed_val / 50
+        elif seed_val < 5000:
+            base = 0.01 + seed_val / 500
+        elif seed_val < 50000:
+            base = 10 + seed_val / 200
+        else:
+            base = 100 + seed_val / 50
+    dates = pd.date_range(end=datetime.now(), periods=limit, freq="D")
+    trend = np.linspace(0, base * 0.1, limit)
+    cycles = base * 0.05 * np.sin(np.linspace(0, 6*np.pi, limit))
+    noise = np.random.normal(0, base * 0.01, limit)
+    close = base - base * 0.05 + trend + cycles + noise
+    close = np.maximum(close, base * 0.5)
+    high = close + np.abs(np.random.normal(0, base * 0.015, limit))
+    low = close - np.abs(np.random.normal(0, base * 0.015, limit))
+    open_p = low + np.random.random(limit) * (high - low)
+    volume = np.random.normal(base * 100, base * 30, limit)
+    volume = np.maximum(volume, 100)
+    df = pd.DataFrame({
+        "open": open_p, "high": high, "low": low,
+        "close": close, "volume": volume
+    }, index=dates)
+    return df
 
 # ============================================================
 # Batch fetch - concurrent for speed
@@ -574,58 +671,476 @@ def analyze_volume(df):
             "score_details": details,
             "volume_history":[round(x,1)for x in df["volume"].iloc[-100:].tolist()]}
 
-def analyze_fib(df):
-    sub = df.iloc[-50:]
-    high = float(sub["high"].max())
-    low = float(sub["low"].min())
-    cp = float(df["close"].iloc[-1])
-    diff = high - low
-    is_up = cp > (high+low)/2
-    ret_levels = [0,0.236,0.382,0.5,0.618,0.786,1.0]
-    ext_levels = [1.272,1.414,1.618,2.0,2.618]
-    ret = {str(l): round(high-diff*l if is_up else low+diff*l, 4) for l in ret_levels}
-    ext = {str(l): round(high+diff*(l-1.0) if is_up else low-diff*(l-1.0), 4) for l in ext_levels}
-    levels = sorted(ret.values())
-    ns = (0,0); nr = (0,0)
-    for p in levels:
-        if p <= cp: ns = (round(p/high,4) if high else 0, p)
-    for p in levels:
-        if p >= cp: nr = (round(p/high,4) if high else 0, p); break
+def analyze_fib(df, direction=None):
+    """
+    Fibonacci + Pivot-Based Support/Resistance Analysis v3.
+
+    Key improvements over v2:
+    1. Multi-scale pivot detection (short/medium/long term) catches structure at all levels
+    2. Local Fibonacci ranges from RECENT major swings (not just all-time extremes)
+    3. Multiple S/R levels (S1/S2/S3, R1/R2/R3) with strength scores
+    4. Pivot clustering: nearby pivots merge into stronger zones
+    5. Percentage-based fallback levels so NO coin is left without nearby S/R
+    6. Direction-aware scoring for contract long/short bias
+       - direction="long":  scores favor support quality and upside room
+       - direction="short": scores favor resistance quality and downside room
+       - direction=None:    neutral scoring (spot analysis)
+    """
+    close = df["close"]
+    high = df["high"]
+    low = df["low"]
+    n = len(df)
+    cp = float(close.iloc[-1])
+
+    # ====================================================================
+    # Step 1: Multi-Scale Pivot Detection
+    # ====================================================================
+    # Detect swing pivots at 3 time scales to find S/R at all granularities.
+    # Short-term (~2-5 bars) for near S/R, medium-term (~8-15 bars) for
+    # structural levels, long-term (~20-30 bars) for major zones.
+
+    def _detect_pivots_at_scale(pw, tag):
+        """Find swing highs and lows using a window of size pw"""
+        h_list, l_list = [], []
+        actual_pw = max(2, min(pw, max(2, n // 3 - 1)))
+        for i in range(actual_pw, n - actual_pw):
+            try:
+                h_val = float(high.iloc[i])
+                l_val = float(low.iloc[i])
+
+                # Swing high: this bar's high is the max in [i-pw, i+pw]
+                h_window = [float(high.iloc[j]) for j in range(i - actual_pw, i + actual_pw + 1)]
+                if h_val == max(h_window):
+                    if not h_list or abs(i - h_list[-1][0]) > max(1, actual_pw // 3):
+                        h_list.append((i, h_val, tag))
+
+                # Swing low: this bar's low is the min in [i-pw, i+pw]
+                l_window = [float(low.iloc[j]) for j in range(i - actual_pw, i + actual_pw + 1)]
+                if l_val == min(l_window):
+                    if not l_list or abs(i - l_list[-1][0]) > max(1, actual_pw // 3):
+                        l_list.append((i, l_val, tag))
+            except (IndexError, ValueError):
+                continue
+        return h_list, l_list
+
+    all_swing_highs = []
+    all_swing_lows = []
+
+    # Short-term: ~3 bars
+    h3, l3 = _detect_pivots_at_scale(3, "short")
+    all_swing_highs.extend(h3); all_swing_lows.extend(l3)
+
+    # Medium-term: ~8 bars
+    h8, l8 = _detect_pivots_at_scale(max(3, n // 25), "medium")
+    all_swing_highs.extend(h8); all_swing_lows.extend(l8)
+
+    # Long-term: ~20 bars
+    h20, l20 = _detect_pivots_at_scale(max(5, n // 10), "long")
+    all_swing_highs.extend(h20); all_swing_lows.extend(l20)
+
+    # If no pivots at all (extremely flat market), use simple local extrema
+    if not all_swing_highs and not all_swing_lows:
+        h_any, l_any = _detect_pivots_at_scale(1, "min")
+        all_swing_highs.extend(h_any); all_swing_lows.extend(l_any)
+
+    # ====================================================================
+    # Step 2: Determine Fibonacci Range — prefer LOCAL over GLOBAL
+    # ====================================================================
+    # Using the full dataset's all-time high/low often produces ranges too
+    # wide for useful S/R. Instead, we find the most recent significant swing
+    # range that CONTAINS the current price and has meaningful width (>3%).
+
+    # Absolute extremes (fallback)
+    abs_high = float(high.max()) if not np.isnan(high.max()) else cp * 1.05
+    abs_low = float(low.min()) if not np.isnan(low.min()) else cp * 0.95
+    abs_high_idx = int(high.values.argmax())
+    abs_low_idx = int(low.values.argmin())
+
+    # Try progressively larger windows to find a suitable range
+    candidates = []
+    for window_size in [50, 80, 120, n]:
+        ws = min(window_size, n)
+        w_high = float(high.iloc[-ws:].max())
+        w_low = float(low.iloc[-ws:].min())
+        w_range = (w_high - w_low) / cp if cp > 0 else 0
+        if w_low < cp < w_high and w_range > 0.03:
+            w_high_idx = int(high.iloc[-ws:].values.argmax()) + (n - ws)
+            w_low_idx = int(low.iloc[-ws:].values.argmin()) + (n - ws)
+            candidates.append((w_high, w_low, w_high_idx, w_low_idx, w_range, ws))
+        if w_range > 0.03:  # Stop early if we found a good range
+            break
+
+    if candidates:
+        # Prefer the tightest range that contains current price
+        # (gives closest, most actionable Fib levels)
+        fib_high, fib_low, h_idx, l_idx, _, _ = candidates[0]
+    else:
+        # Fall back to absolute range
+        fib_high, fib_low = abs_high, abs_low
+        h_idx, l_idx = abs_high_idx, abs_low_idx
+
+    diff = fib_high - fib_low
+    is_uptrend = l_idx < h_idx  # low formed first → uptrend
+
+    # Sanity: if range is negligible, fabricate a minimal range around cp
+    if diff <= 0 or (fib_low > 0 and diff / fib_low < 0.02):
+        fib_low = cp * 0.92
+        fib_high = cp * 1.08
+        diff = fib_high - fib_low
+        is_uptrend = cp > (fib_high + fib_low) / 2
+
+    # ====================================================================
+    # Step 3: Calculate Fibonacci Levels (with finer granularity)
+    # ====================================================================
+    # Added 0.886 level and use 8 decimal precision for low-price coins
+
+    ret_levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 0.886, 1.0]
+    ext_levels = [1.272, 1.414, 1.618, 2.0, 2.618]
+
+    if is_uptrend:
+        ret = {str(L): round(fib_high - diff * L, 10) for L in ret_levels}
+        ext = {str(L): round(fib_low + diff * L, 10) for L in ext_levels}
+    else:
+        ret = {str(L): round(fib_low + diff * L, 10) for L in ret_levels}
+        ext = {str(L): round(fib_high - diff * (L - 1.0), 10) for L in ext_levels}
+
+    # ====================================================================
+    # Step 4: Cluster Pivots → Strong S/R Zones
+    # ====================================================================
+    # Multiple swing points at nearby prices form a stronger zone than
+    # a single touch. Cluster them using a 1.5% tolerance band.
+
+    def cluster_pivots(pivots, tolerance_pct=0.015):
+        """Group nearby pivot prices into zones. Returns (avg_price, touch_count, tags)."""
+        if not pivots:
+            return []
+        sorted_p = sorted(pivots, key=lambda x: x[1])
+        clusters = []
+        current = [sorted_p[0]]
+        for p in sorted_p[1:]:
+            if abs(p[1] - current[-1][1]) / max(current[-1][1], 1e-10) < tolerance_pct:
+                current.append(p)
+            else:
+                avg = sum(x[1] for x in current) / len(current)
+                tags = set(x[2] for x in current)
+                clusters.append((avg, len(current), tags))
+                current = [p]
+        if current:
+            avg = sum(x[1] for x in current) / len(current)
+            tags = set(x[2] for x in current)
+            clusters.append((avg, len(current), tags))
+        # Sort by touch count descending (strongest zones first)
+        clusters.sort(key=lambda x: -x[1])
+        return clusters
+
+    low_clusters = cluster_pivots([(i, p, t) for i, p, t in all_swing_lows if p < cp * 0.999])
+    high_clusters = cluster_pivots([(i, p, t) for i, p, t in all_swing_highs if p > cp * 1.001])
+
+    # Also keep unclustered individual pivots as weak references
+    individual_lows = [(p, t) for _, p, t in all_swing_lows if p < cp * 0.999]
+    individual_highs = [(p, t) for _, p, t in all_swing_highs if p > cp * 1.001]
+
+    # ====================================================================
+    # Step 5: Build Comprehensive S/R Candidate Lists
+    # ====================================================================
+    # Each candidate has: price, dist_pct, source label, strength (1-10)
+
+    def make_candidate(price, source, strength=5):
+        """Create a standardized S/R candidate dict"""
+        if price > cp:
+            dist_pct = round((price - cp) / cp * 100, 2)
+        else:
+            dist_pct = round((cp - price) / cp * 100, 2)
+        return {"price": round(price, 10), "dist_pct": dist_pct,
+                "source": source, "strength": strength}
+
+    support_candidates = []
+    resistance_candidates = []
+
+    # --- Fibonacci levels ---
+    all_fib_levels = sorted(set(ret.values()))
+    for p in all_fib_levels:
+        if p < cp * 0.999:
+            support_candidates.append(make_candidate(p, "fib", 6))
+        elif p > cp * 1.001:
+            resistance_candidates.append(make_candidate(p, "fib", 6))
+
+    # Extension levels as additional resistance (uptrend) or support (downtrend)
     for p in sorted(ext.values()):
-        if p > cp: nr = (nr[0] or p, p); break
-    ds = (cp-ns[1])/cp if ns[1] else 1
-    dr = (nr[1]-cp)/cp if nr[1] else 1
-    pos = "near_support" if ds<0.02 else ("near_resistance" if dr<0.02 else "mid_range")
+        if p > cp * 1.001:
+            resistance_candidates.append(make_candidate(p, "fib_ext", 5))
+        elif p < cp * 0.999:
+            support_candidates.append(make_candidate(p, "fib_ext", 5))
+
+    # --- Clustered pivot zones (strong!) ---
+    for avg_price, touches, tags in low_clusters:
+        tag_str = "+".join(sorted(tags))
+        strength = min(10, 4 + touches * 2)  # 2 touches=8, 3+=10
+        support_candidates.append(make_candidate(avg_price, f"pivot_cluster({touches}t:{tag_str})", strength))
+
+    for avg_price, touches, tags in high_clusters:
+        tag_str = "+".join(sorted(tags))
+        strength = min(10, 4 + touches * 2)
+        resistance_candidates.append(make_candidate(avg_price, f"pivot_cluster({touches}t:{tag_str})", strength))
+
+    # --- Individual pivots (weaker) ---
+    for p, t in individual_lows:
+        # Don't duplicate if already covered by a cluster nearby
+        if not any(abs(p - c["price"]) / max(cp, 1e-10) < 0.01 for c in support_candidates):
+            support_candidates.append(make_candidate(p, f"swing_low({t})", 4))
+
+    for p, t in individual_highs:
+        if not any(abs(p - c["price"]) / max(cp, 1e-10) < 0.01 for c in resistance_candidates):
+            resistance_candidates.append(make_candidate(p, f"swing_high({t})", 4))
+
+    # --- CRITICAL: Percentage-based fallback levels ---
+    # Ensures EVERY coin gets nearby S/R regardless of Fib/pivot gaps.
+    # DOGE example: at $0.12 with Fib range $0.05-$0.50, the nearest Fib
+    # support is $0.05 (58% away). These % levels give $0.1188 (1%), $0.1176 (2%), etc.
+    fallback_pcts = [1, 2, 3, 5, 8, 10, 15, 20, 25, 30]
+    for pct in fallback_pcts:
+        # Support fallback
+        s_price = cp * (1 - pct / 100.0)
+        if not any(abs(c["price"] - s_price) / max(cp, 1e-10) < 0.003 for c in support_candidates):
+            support_candidates.append(make_candidate(s_price, f"pct_{pct}%", 2))
+
+        # Resistance fallback
+        r_price = cp * (1 + pct / 100.0)
+        if not any(abs(c["price"] - r_price) / max(cp, 1e-10) < 0.003 for c in resistance_candidates):
+            resistance_candidates.append(make_candidate(r_price, f"pct_{pct}%", 2))
+
+    # ====================================================================
+    # Step 6: Merge, Deduplicate & Select Best S/R
+    # ====================================================================
+
+    def merge_nearby(candidates, merge_pct=0.008):
+        """Merge candidates within merge_pct of each other (relative to cp).
+        Keeps the one with higher strength, amalgamates source labels."""
+        if len(candidates) <= 1:
+            return candidates
+        # Sort by distance first
+        candidates.sort(key=lambda x: x["dist_pct"])
+        merged = [dict(candidates[0])]
+        for c in candidates[1:]:
+            last = merged[-1]
+            if abs(c["price"] - last["price"]) / max(cp, 1e-10) < merge_pct:
+                if c["strength"] > last["strength"]:
+                    c["source"] = last["source"] + "+" + c["source"]
+                    merged[-1] = dict(c)
+                else:
+                    merged[-1]["source"] = merged[-1]["source"] + "+" + c["source"]
+                    merged[-1]["strength"] = max(merged[-1]["strength"], c["strength"])
+            else:
+                merged.append(dict(c))
+        return merged
+
+    support_candidates = merge_nearby(support_candidates)
+    resistance_candidates = merge_nearby(resistance_candidates)
+
+    # Sort by distance (closest first), then by strength (strongest first)
+    support_candidates.sort(key=lambda x: (x["dist_pct"], -x["strength"]))
+    resistance_candidates.sort(key=lambda x: (x["dist_pct"], -x["strength"]))
+
+    # Select top levels (up to 5).
+    # Always include the nearest Fibonacci retracement level for structural context.
+    # This ensures coins like DOGE get nearby %-based levels AND structural Fib context.
+
+    def _select_top(candidates, fib_only_candidates, max_count=5):
+        """Select top candidates, guaranteeing the nearest Fibonacci level is included."""
+        top = []
+        selected_prices = set()
+
+        # 1. Always pick the closest Fibonacci level (structural context)
+        nearest_fib = None
+        for fc in fib_only_candidates:
+            if fc["dist_pct"] < 50:  # within reasonable range
+                if nearest_fib is None or fc["dist_pct"] < nearest_fib["dist_pct"]:
+                    nearest_fib = fc
+        if nearest_fib:
+            top.append(nearest_fib)
+            selected_prices.add(round(nearest_fib["price"] / cp, 6) if cp > 0 else 0)
+
+        # 2. Fill remaining slots with closest candidates (skip duplicates)
+        for c in candidates:
+            if len(top) >= max_count:
+                break
+            price_key = round(c["price"] / cp, 6) if cp > 0 else 0
+            if price_key not in selected_prices:
+                top.append(c)
+                selected_prices.add(price_key)
+
+        # Sort by distance
+        top.sort(key=lambda x: x["dist_pct"])
+        return top
+
+    # Separate pure Fibonacci candidates
+    fib_support_candidates = [c for c in support_candidates if "fib" in str(c.get("source", "")) and "pivot" not in str(c.get("source", ""))]
+    fib_resistance_candidates = [c for c in resistance_candidates if "fib" in str(c.get("source", "")) and "pivot" not in str(c.get("source", ""))]
+
+    top_supports = _select_top(support_candidates, fib_support_candidates)
+    top_resistances = _select_top(resistance_candidates, fib_resistance_candidates)
+
+    # Guarantee at least one
+    if not top_supports:
+        top_supports = [make_candidate(cp * 0.95, "fallback", 1)]
+    if not top_resistances:
+        top_resistances = [make_candidate(cp * 1.05, "fallback", 1)]
+
+    # Primary (nearest) S/R — for backward compatibility with existing frontend
+    ns_price = top_supports[0]["price"]
+    ns = [round(ns_price / cp, 10), ns_price]
+    nr_price = top_resistances[0]["price"]
+    nr = [round(nr_price / cp, 10), nr_price]
+
+    ds = top_supports[0]["dist_pct"] / 100.0  # as decimal
+    dr = top_resistances[0]["dist_pct"] / 100.0
+
+    # ====================================================================
+    # Step 7: Position Classification & Direction-Aware Scoring
+    # ====================================================================
+
+    pos = "near_support" if ds < 0.025 else ("near_resistance" if dr < 0.025 else "mid_range")
     score = 50.0
     details = []
-    f618 = ret.get("0.618",0)
+
+    # Helper to add detail
+    def _add_detail(factor, impact_l, impact_s, desc_en, desc_zh):
+        details.append({
+            "factor": factor, "impact_l": impact_l, "impact_s": impact_s,
+            "impact": impact_l,  # backward compat: default to long impact
+            "desc_en": desc_en, "desc_zh": desc_zh
+        })
+
+    # --- Golden Ratio (0.618) ---
+    f618 = ret.get("0.618", 0)
     golden_hit = False
-    if f618 and abs(cp-f618)/cp < 0.03:
-        if pos=="near_support":
+    if f618 and abs(cp - f618) / cp < 0.03:
+        if ds < dr:  # closer to support side
+            _add_detail("golden_618_support", 20, -15,
+                f"Price near 0.618 golden ratio support (${_fmt_price(f618)}) - ideal entry zone",
+                f"价格接近0.618黄金分割支撑位(${_fmt_price(f618)}) - 理想入场区域")
             score += 20
-            details.append({"factor": "golden_618_support", "impact": 20, "desc_en": f"Price near 0.618 golden ratio support (${f618:,.2f}) - ideal entry zone", "desc_zh": f"价格接近0.618黄金分割支撑位(${f618:,.2f}) - 理想入场区域"})
             golden_hit = True
-        elif pos=="near_resistance":
+        else:  # closer to resistance side
+            _add_detail("golden_618_resistance", -15, 20,
+                f"Price near 0.618 golden ratio resistance (${_fmt_price(f618)}) - caution zone",
+                f"价格接近0.618黄金分割阻力位(${_fmt_price(f618)}) - 注意风险")
             score -= 15
-            details.append({"factor": "golden_618_resistance", "impact": -15, "desc_en": f"Price near 0.618 golden ratio resistance (${f618:,.2f}) - caution zone", "desc_zh": f"价格接近0.618黄金分割阻力位(${f618:,.2f}) - 注意风险"})
-    for k in ["0.382","0.5","0.618"]:
-        if ret.get(k,0) and abs(cp-ret[k])/cp < 0.015 and not golden_hit:
-            score += 10
-            details.append({"factor": f"near_retrace_{k}", "impact": 10, "desc_en": f"Price near {k} retracement level (${ret[k]:,.2f}) - potential bounce zone", "desc_zh": f"价格接近{k}回撤位(${ret[k]:,.2f}) - 潜在反弹区域"})
-            break
-    if pos=="near_support" and not details:
-        details.append({"factor": "near_support", "impact": 5, "desc_en": f"Price near support level ${ns[1]:,.2f}", "desc_zh": f"价格接近支撑位${ns[1]:,.2f}"})
+
+    # --- Pivot cluster strength ---
+    best_s = top_supports[0]
+    best_r = top_resistances[0]
+
+    if best_s.get("strength", 0) >= 8 and ds < 0.05:
+        _add_detail("strong_cluster_support", 10, -10,
+            f"Strong support cluster at ${_fmt_price(best_s['price'])} (multiple touches)",
+            f"强支撑集群${_fmt_price(best_s['price'])}（多次确认）")
+        score += 10
+    if best_r.get("strength", 0) >= 8 and dr < 0.05:
+        _add_detail("strong_cluster_resistance", -10, 10,
+            f"Strong resistance cluster at ${_fmt_price(best_r['price'])} (multiple touches)",
+            f"强阻力集群${_fmt_price(best_r['price'])}（多次确认）")
+        score -= 10
+
+    # --- Multiple S/R stacking ---
+    if len(top_supports) >= 2 and top_supports[1]["dist_pct"] / 100.0 < 0.10:
+        _add_detail("multiple_supports", 5, -5,
+            f"Multiple supports: ${_fmt_price(top_supports[0]['price'])}, ${_fmt_price(top_supports[1]['price'])}",
+            f"多层支撑：${_fmt_price(top_supports[0]['price'])}、${_fmt_price(top_supports[1]['price'])}")
         score += 5
-    elif pos=="near_resistance" and not details:
-        details.append({"factor": "near_resistance", "impact": -5, "desc_en": f"Price near resistance level ${nr[1]:,.2f}", "desc_zh": f"价格接近阻力位${nr[1]:,.2f}"})
+    if len(top_resistances) >= 2 and top_resistances[1]["dist_pct"] / 100.0 < 0.10:
+        _add_detail("multiple_resistances", -5, 5,
+            f"Multiple resistances: ${_fmt_price(top_resistances[0]['price'])}, ${_fmt_price(top_resistances[1]['price'])}",
+            f"多层阻力：${_fmt_price(top_resistances[0]['price'])}、${_fmt_price(top_resistances[1]['price'])}")
         score -= 5
+
+    # --- Direction-aware proximity scoring ---
+    if direction == "long":
+        # For longs: close support = tight SL (GOOD), close resistance = limited upside (BAD)
+        if ds < 0.01:
+            _add_detail("tight_support_long", 15, 0,
+                f"Very close support ${_fmt_price(ns[1])} ({ds*100:.1f}% away) - tight SL possible",
+                f"极近支撑位${_fmt_price(ns[1])}（{ds*100:.1f}%）- 可设紧凑止损")
+            score += 15
+        if dr < 0.01:
+            _add_detail("tight_resistance_long", -10, 0,
+                f"Very close resistance ${_fmt_price(nr[1])} ({dr*100:.1f}% away) - limited upside",
+                f"极近阻力位${_fmt_price(nr[1])}（{dr*100:.1f}%）- 上行空间有限")
+            score -= 10
+    elif direction == "short":
+        # For shorts: close resistance = tight SL (GOOD), close support = limited downside (BAD)
+        if dr < 0.01:
+            _add_detail("tight_resistance_short", 0, 15,
+                f"Very close resistance ${_fmt_price(nr[1])} ({dr*100:.1f}% away) - tight SL possible",
+                f"极近阻力位${_fmt_price(nr[1])}（{dr*100:.1f}%）- 可设紧凑止损")
+            score += 0  # score impact handled in contract_analysis via impact_s
+        if ds < 0.01:
+            _add_detail("tight_support_short", 0, -10,
+                f"Very close support ${_fmt_price(ns[1])} ({ds*100:.1f}% away) - limited downside",
+                f"极近支撑位${_fmt_price(ns[1])}（{ds*100:.1f}%）- 下行空间有限")
+            score -= 0  # score impact handled in contract_analysis via impact_s
+
+    # --- Position-based scoring ---
+    if pos == "near_support":
+        has_factor = any(d.get("factor", "").startswith(("tight_", "strong_", "golden_", "multiple_")) for d in details)
+        if not has_factor:
+            _add_detail("near_support", 8, -5,
+                f"Price near support zone ${_fmt_price(ns[1])} ({ds*100:.1f}% away)",
+                f"价格接近支撑区域${_fmt_price(ns[1])}（{ds*100:.1f}%）")
+            score += 8
+    elif pos == "near_resistance":
+        has_factor = any(d.get("factor", "").startswith(("tight_", "strong_", "golden_", "multiple_")) for d in details)
+        if not has_factor:
+            _add_detail("near_resistance", -5, 8,
+                f"Price near resistance zone ${_fmt_price(nr[1])} ({dr*100:.1f}% away)",
+                f"价格接近阻力区域${_fmt_price(nr[1])}（{dr*100:.1f}%）")
+            score -= 5
+
+    # --- Mid-range fallback ---
     if not details:
-        details.append({"factor": "mid_range", "impact": 0, "desc_en": f"Price in mid-range (support: ${ns[1]:,.2f}, resistance: ${nr[1]:,.2f})", "desc_zh": f"价格处于中段区域（支撑:${ns[1]:,.2f}，阻力:${nr[1]:,.2f}）"})
+        _add_detail("mid_range", 0, 0,
+            f"Price in mid-range (S: ${_fmt_price(ns[1])} at -{ds*100:.1f}%, R: ${_fmt_price(nr[1])} at +{dr*100:.1f}%)",
+            f"价格处于中段区域（支撑:${_fmt_price(ns[1])}(-{ds*100:.1f}%)，阻力:${_fmt_price(nr[1])}(+{dr*100:.1f}%)）")
+
     score = max(0, min(100, score))
-    return {"high":round(high,4),"low":round(low,4),"current":round(cp,4),
-            "retracement":ret,"extension":ext,"support":[ns[0],ns[1]],
-            "resistance":[nr[0],nr[1]],"position":pos,"score":round(score,1),
-            "score_details": details}
+
+    # Build multi-level S/R output
+    supports_out = []
+    for s in top_supports:
+        supports_out.append({
+            "ratio": round(s["price"] / cp, 8) if cp > 0 else 0,
+            "price": s["price"],
+            "dist_pct": s["dist_pct"],
+            "source": s["source"],
+            "strength": s["strength"]
+        })
+
+    resistances_out = []
+    for r in top_resistances:
+        resistances_out.append({
+            "ratio": round(r["price"] / cp, 8) if cp > 0 else 0,
+            "price": r["price"],
+            "dist_pct": r["dist_pct"],
+            "source": r["source"],
+            "strength": r["strength"]
+        })
+
+    return {
+        "high": round(fib_high, 10),
+        "low": round(fib_low, 10),
+        "current": round(cp, 10),
+        "retracement": ret,
+        "extension": ext,
+        # Primary S/R — backward compatible with existing UI
+        "support": [ns[0], ns[1]],
+        "resistance": [nr[0], nr[1]],
+        # Multi-level S/R — for richer analysis
+        "supports": supports_out,
+        "resistances": resistances_out,
+        "position": pos,
+        "score": round(score, 1),
+        "score_details": details
+    }
 
 WEIGHTS = {"macd":0.35,"volume":0.35,"fibonacci":0.30}
 CONTRACT_WEIGHTS = {"macd":0.25,"rsi":0.20,"volume":0.20,"bollinger":0.20,"fibonacci":0.15}
@@ -739,7 +1254,7 @@ def analyze_bb(df, period=20, std=2):
         score += 5
 
     score = max(0, min(100, score))
-    return {"upper": round(up, 4), "middle": round(mi, 4), "lower": round(lo, 4),
+    return {"upper": round(up, 10), "middle": round(mi, 10), "lower": round(lo, 10),
             "pct_b": round(pct_b, 4), "bandwidth": round(bw, 4),
             "score": round(score, 1), "score_details": details}
 
@@ -755,7 +1270,7 @@ def analyze_atr(df, period=14):
     current_atr = float(atr.iloc[-1])
     current_price = float(close.iloc[-1])
     atr_pct = current_atr / current_price if current_price > 0 else 0
-    return {"atr": round(current_atr, 4), "atr_pct": round(atr_pct * 100, 2),
+    return {"atr": round(current_atr, 10), "atr_pct": round(atr_pct * 100, 2),
             "volatility": "high" if atr_pct > 0.03 else ("medium" if atr_pct > 0.015 else "low")}
 
 
@@ -764,7 +1279,14 @@ def analyze_atr(df, period=14):
 # ============================================================
 
 def contract_analysis(symbol, df, strategy=None):
-    """Full contract analysis with LONG/SHORT dual-direction scoring"""
+    """Full contract analysis with LONG/SHORT dual-direction scoring.
+
+    v3: Each indicator contributes independently to long_score and short_score.
+    Fib scores are direction-aware (near support → good for long, bad for short;
+    near resistance → good for short, bad for long).
+    RSI and BB also have direction-specific impacts per score_detail.impact_l/impact_s.
+    MACD and Volume use symmetric inversion (100 - score).
+    """
     if strategy is None:
         strategy = {}
     macd = analyze_macd(df)
@@ -776,15 +1298,41 @@ def contract_analysis(symbol, df, strategy=None):
 
     cp = float(df["close"].iloc[-1])
 
-    # Calculate LONG score (bullish bias)
-    long_score = (macd["strength"] * CONTRACT_WEIGHTS["macd"] +
-                  rsi["score"] * CONTRACT_WEIGHTS["rsi"] +
-                  vol["score"] * CONTRACT_WEIGHTS["volume"] +
-                  bb["score"] * CONTRACT_WEIGHTS["bollinger"] +
-                  fib["score"] * CONTRACT_WEIGHTS["fibonacci"])
+    W = CONTRACT_WEIGHTS
 
-    # SHORT score = 100 - long_score (inverse logic)
-    short_score = 100 - long_score
+    # ---- Compute INDEPENDENT long and short sub-scores for each indicator ----
+
+    # MACD: no direction-specific impacts, use symmetric inversion
+    macd_long = macd["strength"]
+    macd_short = 100 - macd["strength"]
+
+    # RSI: has impact_l/impact_s in score_details
+    rsi_long = rsi["score"]  # already computed with impact_l deltas
+    rsi_short = 50 + sum(d.get("impact_s", d.get("impact", 0)) for d in rsi.get("score_details", []))
+    rsi_short = max(0, min(100, rsi_short))
+
+    # Volume: uses generic "impact", symmetric inversion
+    vol_long = vol["score"]
+    vol_short = 100 - vol["score"]
+
+    # Bollinger: has impact_l/impact_s in score_details
+    bb_long = bb["score"]
+    bb_short = 50 + sum(d.get("impact_s", d.get("impact", 0)) for d in bb.get("score_details", []))
+    bb_short = max(0, min(100, bb_short))
+
+    # Fibonacci: has impact_l/impact_s - DIRECTION AWARE (the core fix)
+    fib_long = fib["score"]  # already computed with impact_l deltas
+    fib_short = 50 + sum(d.get("impact_s", d.get("impact", 0)) for d in fib.get("score_details", []))
+    fib_short = max(0, min(100, fib_short))
+
+    # Weighted composite scores
+    long_score = (macd_long * W["macd"] + rsi_long * W["rsi"] +
+                  vol_long * W["volume"] + bb_long * W["bollinger"] +
+                  fib_long * W["fibonacci"])
+
+    short_score = (macd_short * W["macd"] + rsi_short * W["rsi"] +
+                   vol_short * W["volume"] + bb_short * W["bollinger"] +
+                   fib_short * W["fibonacci"])
 
     long_score = max(0, min(100, long_score))
     short_score = max(0, min(100, short_score))
@@ -827,30 +1375,51 @@ def contract_analysis(symbol, df, strategy=None):
 
     # ---- SL Calculation Priority ----
     # 1. User-provided support/resistance (best)
-    # 2. Fibonacci levels (good)
+    # 2. Nearest Fibonacci/pivot level within 5% (good)
     # 3. Volatility-based % (fallback)
+    # For contracts, SL is placed just beyond the identified S/R level.
     if direction == "long":
         if user_support > 0 and user_support < cp:
-            stop_loss = round(user_support * 0.997, 4)  # Just under user support
+            stop_loss = round(user_support * 0.997, 10)
             sl_source = "user_support"
-        elif fib["support"][1] and fib["support"][1] < cp:
-            stop_loss = round(fib["support"][1] * 0.995, 4)
-            sl_source = "fib_support"
         else:
-            sl_pct = user_max_loss / 100.0
-            stop_loss = round(cp * (1 - sl_pct), 4)
-            sl_source = f"{user_max_loss}%_max_loss"
+            # Find the strongest support within 5% of current price
+            best_sl = None
+            for s in fib.get("supports", [fib.get("support", [0, cp * 0.95])]):
+                s_price = s.get("price", s[1] if isinstance(s, list) else 0)
+                s_dist = (cp - s_price) / cp if cp > 0 else 1
+                if s_dist < 0.05 and s_price < cp:
+                    if best_sl is None or s.get("strength", 1) > best_sl.get("strength", 1):
+                        best_sl = s
+            if best_sl:
+                s_price = best_sl.get("price", best_sl[1] if isinstance(best_sl, list) else cp * 0.95)
+                stop_loss = round(s_price * 0.995, 10)
+                sl_source = f"best_support_{best_sl.get('source', 'auto')}"
+            else:
+                sl_pct = user_max_loss / 100.0
+                stop_loss = round(cp * (1 - sl_pct), 10)
+                sl_source = f"{user_max_loss}%_max_loss"
     elif direction == "short":
         if user_resistance > 0 and user_resistance > cp:
-            stop_loss = round(user_resistance * 1.003, 4)
+            stop_loss = round(user_resistance * 1.003, 10)
             sl_source = "user_resistance"
-        elif fib["resistance"][1] and fib["resistance"][1] > cp:
-            stop_loss = round(fib["resistance"][1] * 1.005, 4)
-            sl_source = "fib_resistance"
         else:
-            sl_pct = user_max_loss / 100.0
-            stop_loss = round(cp * (1 + sl_pct), 4)
-            sl_source = f"{user_max_loss}%_max_loss"
+            # Find the strongest resistance within 5% of current price
+            best_sl = None
+            for r in fib.get("resistances", [fib.get("resistance", [0, cp * 1.05])]):
+                r_price = r.get("price", r[1] if isinstance(r, list) else 0)
+                r_dist = (r_price - cp) / cp if cp > 0 else 1
+                if r_dist < 0.05 and r_price > cp:
+                    if best_sl is None or r.get("strength", 1) > best_sl.get("strength", 1):
+                        best_sl = r
+            if best_sl:
+                r_price = best_sl.get("price", best_sl[1] if isinstance(best_sl, list) else cp * 1.05)
+                stop_loss = round(r_price * 1.005, 10)
+                sl_source = f"best_resistance_{best_sl.get('source', 'auto')}"
+            else:
+                sl_pct = user_max_loss / 100.0
+                stop_loss = round(cp * (1 + sl_pct), 10)
+                sl_source = f"{user_max_loss}%_max_loss"
     else:
         stop_loss = None
         sl_source = "none"
@@ -860,22 +1429,25 @@ def contract_analysis(symbol, df, strategy=None):
         if direction == "long":
             sl_dist = (cp - stop_loss) / cp
             tp1_dist = sl_dist * user_target_rr
-            take_profit_1 = round(cp * (1 + tp1_dist), 4)
-            take_profit_2 = round(cp * (1 + tp1_dist * 1.8), 4)
-            # If user resistance is above TP1, use it as TP2
-            if user_resistance > take_profit_1 and user_resistance < take_profit_2:
-                take_profit_2 = round(user_resistance, 4)
-            elif user_resistance > take_profit_1:
-                take_profit_1 = round(user_resistance * 0.995, 4)  # Just below resistance
+            take_profit_1 = round(cp * (1 + tp1_dist), 10)
+            take_profit_2 = round(cp * (1 + tp1_dist * 1.8), 10)
+            # If user resistance is above TP1, use it as TP2/TP1 (only when user provided a value > 0)
+            if user_resistance > 0 and user_resistance > take_profit_1:
+                if user_resistance < take_profit_2:
+                    take_profit_2 = round(user_resistance, 10)
+                else:
+                    take_profit_1 = round(user_resistance * 0.995, 10)  # Just below resistance
         else:
             sl_dist = (stop_loss - cp) / cp
             tp1_dist = sl_dist * user_target_rr
-            take_profit_1 = round(cp * (1 - tp1_dist), 4)
-            take_profit_2 = round(cp * (1 - tp1_dist * 1.8), 4)
-            if user_support < take_profit_1 and user_support > take_profit_2:
-                take_profit_2 = round(user_support, 4)
-            elif user_support < take_profit_1:
-                take_profit_1 = round(user_support * 1.005, 4)
+            take_profit_1 = round(cp * (1 - tp1_dist), 10)
+            take_profit_2 = round(cp * (1 - tp1_dist * 1.8), 10)
+            # If user support is below TP1, use it as TP2/TP1 (only when user provided a value > 0)
+            if user_support > 0 and user_support < take_profit_1:
+                if user_support > take_profit_2:
+                    take_profit_2 = round(user_support, 10)
+                else:
+                    take_profit_1 = round(user_support * 1.005, 10)
     else:
         take_profit_1 = None
         take_profit_2 = None
@@ -954,7 +1526,7 @@ def contract_analysis(symbol, df, strategy=None):
     if total_cost > 0:
         warnings.append(f"交易成本预估：手续费${fee_cost:.2f}(0.1%) + 资金费率${funding_cost:.2f}({user_hold_periods}周期估算) = ${total_cost:.2f}，需价格波动>{be_move_pct}%才能盈利")
 
-    closes = [round(x, 4) for x in df["close"].iloc[-200:].tolist()]
+    closes = [round(x, 10) for x in df["close"].iloc[-200:].tolist()]
     dates = [str(x.date()) for x in df.index[-200:]]
 
     return {
@@ -1008,8 +1580,8 @@ def contract_analysis(symbol, df, strategy=None):
         "warnings": warnings,
         "chart": {"dates": dates, "prices": closes,
                   "rsi": rsi.get("rsi_history", []),
-                  "bb_upper": [round(bb["upper"], 4)] * len(closes) if len(closes) > 0 else [],
-                  "bb_lower": [round(bb["lower"], 4)] * len(closes) if len(closes) > 0 else []}
+                  "bb_upper": [round(bb["upper"], 10)] * len(closes) if len(closes) > 0 else [],
+                  "bb_lower": [round(bb["lower"], 10)] * len(closes) if len(closes) > 0 else []}
     }
 
 
@@ -1073,9 +1645,9 @@ def full_analysis(symbol, df):
     entry = None
     exit_plan = None
     if "buy" in signal:
-        sl = round(fib["support"][1] * 0.97, 4) if fib["support"][1] else None
-        t1 = round(fib["resistance"][1], 4) if fib["resistance"][1] else None
-        t2 = round(fib["extension"].get("1.618", 0), 4) or None
+        sl = round(fib["support"][1] * 0.97, 10) if fib["support"][1] else None
+        t1 = round(fib["resistance"][1], 10) if fib["resistance"][1] else None
+        t2 = round(fib["extension"].get("1.618", 0), 10) or None
         entry = {
             "zone": f"{fib['support'][1]} - {cp}",
             "stop_loss": sl,
@@ -1084,11 +1656,11 @@ def full_analysis(symbol, df):
             "position_pct": 30 if score > 70 else 15
         }
     elif "sell" in signal:
-        sl = round(fib["resistance"][1] * 1.03, 4) if fib["resistance"][1] else None
-        t = round(fib["support"][1], 4) if fib["support"][1] else None
+        sl = round(fib["resistance"][1] * 1.03, 10) if fib["resistance"][1] else None
+        t = round(fib["support"][1], 10) if fib["support"][1] else None
         exit_plan = {"stop_loss": sl, "target": t}
 
-    closes = [round(x, 4) for x in df["close"].iloc[-200:].tolist()]
+    closes = [round(x, 10) for x in df["close"].iloc[-200:].tolist()]
     dates = [str(x.date()) for x in df.index[-200:]]
 
     return {
@@ -1304,6 +1876,20 @@ def generate_plan(portfolio, analyses):
 # Contract Investment Plan Generator
 # ============================================================
 
+def _fmt_price(p):
+    """Smart price formatting: preserve decimal places based on price magnitude"""
+    if p is None or not isinstance(p, (int, float)):
+        return str(p or 0)
+    abs_p = abs(p)
+    if abs_p >= 1000:
+        return f"{p:,.2f}"
+    elif abs_p >= 1:
+        return f"{p:,.4f}"
+    elif abs_p >= 0.01:
+        return f"{p:,.6f}"
+    else:
+        return f"{p:,.8f}"
+
 def _build_contract_reason(a):
     """Build detailed reasoning for contract recommendation"""
     ind = a.get("indicators", {})
@@ -1350,8 +1936,8 @@ def _build_contract_reason(a):
 
     # Entry plan if not hold
     if direction != "hold" and entry:
-        parts.append(f"【入场计划】入场${entry.get('price', 0):,.2f}，止损${entry.get('stop_loss', 0):,.2f}，止盈1 ${entry.get('take_profit_1', 0):,.2f}，止盈2 ${entry.get('take_profit_2', 0):,.2f}，盈亏比1:{entry.get('risk_reward', 0)}")
-        parts.append(f"【风控】ATR={atr.get('atr', 0):.2f}，波动率{atr.get('volatility', 'medium')}，止损={entry.get('sl_atr_mult', 0)}×ATR")
+        parts.append(f"【入场计划】入场${_fmt_price(entry.get('price', 0))}，止损${_fmt_price(entry.get('stop_loss', 0))}，止盈1 ${_fmt_price(entry.get('take_profit_1', 0))}，止盈2 ${_fmt_price(entry.get('take_profit_2', 0))}，盈亏比1:{entry.get('risk_reward', 0)}")
+        parts.append(f"【风控】ATR={_fmt_price(atr.get('atr', 0))}，波动率{atr.get('volatility', 'medium')}，止损={entry.get('sl_atr_mult', 0)}×ATR")
 
     # Warnings
     warnings = a.get("warnings", [])
@@ -2190,8 +2776,8 @@ def okx_place_contract_order(symbol, side, amount_usd, leverage=5, sl_price=None
             "sz": str(sz),
             "tpTriggerPx": "",
             "tpOrdPx": "",
-            "slTriggerPx": str(round(sl_price, 2)),
-            "slOrdPx": str(round(sl_price * 0.999 if side == "long" else sl_price * 1.001, 2)),
+            "slTriggerPx": str(round(sl_price, 10)),
+            "slOrdPx": str(round(sl_price * 0.999 if side == "long" else sl_price * 1.001, 10)),
         }
         sl_result = _okx_make_request("POST", "/api/v5/trade/order-algo", sl_body)
 
@@ -2204,8 +2790,8 @@ def okx_place_contract_order(symbol, side, amount_usd, leverage=5, sl_price=None
             "posSide": posSide,
             "ordType": "conditional",
             "sz": str(sz),
-            "tpTriggerPx": str(round(tp_price, 2)),
-            "tpOrdPx": str(round(tp_price * 0.999 if side == "long" else tp_price * 1.001, 2)),
+            "tpTriggerPx": str(round(tp_price, 10)),
+            "tpOrdPx": str(round(tp_price * 0.999 if side == "long" else tp_price * 1.001, 10)),
             "slTriggerPx": "",
             "slOrdPx": "",
         }
