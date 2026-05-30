@@ -62,7 +62,30 @@ CG_IDS = {
 }
 
 # ---- Smart Proxy Auto-Detection ----
-COMMON_PROXY_PORTS = [7890, 7897, 10809, 1080, 7891, 8118, 8888, 8080, 3128, 1087, 9090]
+# All VPN apps (Clash/V2Ray/SS/v2rayN) write to the same Windows registry location
+# when "System Proxy" is enabled. No port scanning needed.
+
+def _read_windows_system_proxy():
+    """Read Windows Internet Options proxy setting (set by all VPN apps)"""
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                             r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+        proxy_enabled, _ = winreg.QueryValueEx(key, "ProxyEnable")
+        if proxy_enabled:
+            proxy_server, _ = winreg.QueryValueEx(key, "ProxyServer")
+            winreg.CloseKey(key)
+            if proxy_server:
+                # Format: "127.0.0.1:7897" or "http=127.0.0.1:7897;https=..."
+                p = proxy_server.split(";")[0].strip()
+                if "=" in p:
+                    p = p.split("=", 1)[1]
+                if not p.startswith("http"):
+                    p = "http://" + p
+                return p
+    except Exception:
+        pass
+    return None
 
 def _test_proxy(proxy_url, test_url="https://api.binance.com/api/v3/ping", timeout=2):
     """Test if a proxy actually works by making a request through it"""
@@ -74,77 +97,49 @@ def _test_proxy(proxy_url, test_url="https://api.binance.com/api/v3/ping", timeo
         return False
 
 def _auto_discover_proxy():
-    """Auto-discover working proxy from common ports and environment"""
+    """Auto-discover proxy: Windows system proxy -> env vars -> config.json -> direct"""
     global _proxy_cache, _proxy_test_time
 
     # Return cached proxy if tested recently
     if _proxy_cache is not None and time.time() - _proxy_test_time < 300:
         return _proxy_cache
 
-    # 1. Check environment variables
+    # 1. Windows system proxy (covers ALL VPN apps: Clash, V2Ray, SS, v2rayN, etc.)
+    sys_proxy = _read_windows_system_proxy()
+    if sys_proxy and _test_proxy(sys_proxy):
+        _proxy_cache = {"http": sys_proxy, "https": sys_proxy}
+        _proxy_test_time = time.time()
+        print(f"Proxy OK via system: {sys_proxy}")
+        return _proxy_cache
+
+    # 2. Environment variables
     for v in ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY"]:
         val = os.environ.get(v, "")
         if val and val.startswith("http"):
             if _test_proxy(val):
                 _proxy_cache = {"http": val, "https": val}
                 _proxy_test_time = time.time()
-                print(f"Proxy found via env {v}: {val}")
+                print(f"Proxy OK via env {v}: {val}")
                 return _proxy_cache
 
-    # 2. Check config file
+    # 3. config.json
     try:
-        with open("config.json", "r") as f:
+        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+        with open(cfg_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
         proxy = cfg.get("proxy", "")
         if proxy and proxy.startswith("http"):
             if _test_proxy(proxy):
                 _proxy_cache = {"http": proxy, "https": proxy}
                 _proxy_test_time = time.time()
-                print(f"Proxy found via config.json: {proxy}")
+                print(f"Proxy OK via config.json: {proxy}")
                 return _proxy_cache
     except Exception:
         pass
 
-    # 2.5. Check Windows system proxy (Clash/V2Ray "System Proxy" mode)
-    try:
-        import winreg
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                             r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
-        proxy_enabled, _ = winreg.QueryValueEx(key, "ProxyEnable")
-        if proxy_enabled:
-            proxy_server, _ = winreg.QueryValueEx(key, "ProxyServer")
-            winreg.CloseKey(key)
-            if proxy_server:
-                p = proxy_server.split(";")[0].strip()
-                if "=" in p:
-                    p = p.split("=", 1)[1]
-                if not p.startswith("http"):
-                    p = "http://" + p
-                if _test_proxy(p):
-                    _proxy_cache = {"http": p, "https": p}
-                    _proxy_test_time = time.time()
-                    print(f"Proxy found via Windows system proxy: {p}")
-                    return _proxy_cache
-    except Exception:
-        pass
-
-    # 4. Auto-scan common proxy ports on localhost
-    for port in COMMON_PROXY_PORTS:
-        proxy_url = f"http://127.0.0.1:{port}"
-        # Quick socket check first
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(0.3)
-        result = sock.connect_ex(("127.0.0.1", port))
-        sock.close()
-        if result == 0:
-            # Port is open - test if it's actually a proxy
-            if _test_proxy(proxy_url):
-                _proxy_cache = {"http": proxy_url, "https": proxy_url}
-                _proxy_test_time = time.time()
-                print(f"Proxy auto-detected on port {port}: {proxy_url}")
-                return _proxy_cache
-
+    # 4. No proxy available - try direct connection
     _proxy_test_time = time.time()
+    _proxy_cache = None
     return None
 
 # Proxy: only use if explicitly set in config.json

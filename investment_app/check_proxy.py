@@ -1,47 +1,38 @@
 # -*- coding: utf-8 -*-
-"""Proxy auto-detect tool - finds your VPN proxy port"""
-import socket, sys
-
-COMMON_PORTS = [7890, 7897, 1080, 10809, 8888, 1087, 8118, 9090, 3128, 8080]
+"""Proxy auto-detect tool - reads Windows system proxy settings"""
+import sys
 
 print("=" * 50)
 print("  Proxy Detection Tool")
 print("=" * 50)
-print("\nChecking common VPN proxy ports on localhost...\n")
 
-found = []
-for port in COMMON_PORTS:
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.5)
-        result = s.connect_ex(("127.0.0.1", port))
-        s.close()
-        if result == 0:
-            proxy_type = ""
-            if port == 7890: proxy_type = "(likely Clash)"
-            elif port == 1080: proxy_type = "(likely Shadowsocks)"
-            elif port == 10809: proxy_type = "(likely V2Ray/Xray)"
-            elif port == 8888: proxy_type = "(HTTP proxy)"
-            print(f"  OPEN: 127.0.0.1:{port} {proxy_type}")
-            found.append(port)
-    except Exception:
-        pass
-
-if not found:
-    print("  No common proxy ports found on localhost.")
-    print("\n  Make sure your VPN/proxy software is RUNNING.")
-    print("  If using Clash: enable 'System Proxy' or 'TUN Mode'")
-    print("  If using V2Ray: check your inbound port settings")
-
-if found:
-    p = found[0]
-    is_http = p in [7890, 8888, 8080, 3128, 8118]
-    print(f"\n  Recommended config.json setting:")
-    if is_http:
-        print(f'  {{"proxy": "http://127.0.0.1:{p}"}}')
+try:
+    import winreg
+    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                         r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+    proxy_enabled, _ = winreg.QueryValueEx(key, "ProxyEnable")
+    if proxy_enabled:
+        proxy_server, _ = winreg.QueryValueEx(key, "ProxyServer")
+        winreg.CloseKey(key)
+        print(f"\n  System proxy ENABLED")
+        print(f"  Address: {proxy_server}")
+        # Parse
+        p = proxy_server.split(";")[0].strip()
+        if "=" in p:
+            p = p.split("=", 1)[1]
+        if not p.startswith("http"):
+            p = "http://" + p
+        print(f"  Parsed:  {p}")
+        print(f"\n  All good! The app will auto-detect this proxy.")
     else:
-        print(f'  {{"proxy": "socks5://127.0.0.1:{p}"}}')
-    print(f"\n  Or set in terminal before running app:")
-    print(f"  set HTTPS_PROXY=http://127.0.0.1:{p}")
+        winreg.CloseKey(key)
+        print("\n  System proxy DISABLED.")
+        print("  Turn on 'System Proxy' in your VPN app (Clash/V2Ray/SS).")
+        print("  Or manually set proxy in config.json: {\"proxy\": \"http://127.0.0.1:xxxx\"}")
+except ImportError:
+    print("\n  Not on Windows - check HTTPS_PROXY environment variable.")
+except Exception as e:
+    print(f"\n  Error reading system proxy: {e}")
 
 print()
+
