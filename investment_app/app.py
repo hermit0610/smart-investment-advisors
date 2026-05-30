@@ -142,9 +142,12 @@ if not PROXY:
     print("OKX proxy not configured. Data fetching uses system proxy.")
 
 def _try_fetch_json(url, timeout=REQUEST_TIMEOUT, use_proxy=True):
-    """Fetch JSON from URL"""
+    """Fetch JSON from URL - auto-detects proxy if not configured"""
     try:
-        proxies = PROXY if (PROXY and use_proxy) else None
+        proxies = PROXY
+        if not proxies and use_proxy:
+            # Auto-discover proxy if none configured
+            proxies = _auto_discover_proxy()
         r = requests.get(url, timeout=timeout, proxies=proxies)
         if r.status_code == 200:
             return r.json()
@@ -165,7 +168,7 @@ def _check_network():
         result_holder = [None]
         def _try(u):
             try:
-                proxies = PROXY if PROXY else None
+                proxies = PROXY if PROXY else _auto_discover_proxy()
                 r = requests.get(u, timeout=2, proxies=proxies)
                 if r.status_code == 200 and result_holder[0] is None:
                     result_holder[0] = True

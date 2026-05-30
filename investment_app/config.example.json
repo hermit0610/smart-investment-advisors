@@ -1,0 +1,12 @@
+{
+    "proxy": "",
+    "_comment_proxy": "系统会自动检测代理端口(Clash=7890, V2Ray=10809, SS=1080)。手动指定如 http://127.0.0.1:7890",
+
+    "exchange_order": ["okx", "binance", "bybit", "mexc", "coingecko", "kucoin", "gate"],
+    "_comment_exchange": "数据源优先级，排前面的优先使用。无需API Key，全部公开接口。",
+
+    "okx_api_key": "",
+    "okx_api_secret": "",
+    "okx_api_passphrase": "",
+    "_comment_okx": "OKX(欧易) API密钥(可选)。不使用交易功能可以不填。获取地址: https://www.okx.com/account/my-api"
+}
