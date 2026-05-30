@@ -62,7 +62,7 @@ CG_IDS = {
 }
 
 # ---- Smart Proxy Auto-Detection ----
-COMMON_PROXY_PORTS = [7890, 10809, 1080, 7891, 8118, 8888, 8080, 3128, 1087, 9090]
+COMMON_PROXY_PORTS = [7890, 7897, 10809, 1080, 7891, 8118, 8888, 8080, 3128, 1087, 9090]
 
 def _test_proxy(proxy_url, test_url="https://api.binance.com/api/v3/ping", timeout=2):
     """Test if a proxy actually works by making a request through it"""
@@ -105,7 +105,30 @@ def _auto_discover_proxy():
     except Exception:
         pass
 
-    # 3. Auto-scan common proxy ports on localhost
+    # 2.5. Check Windows system proxy (Clash/V2Ray "System Proxy" mode)
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                             r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+        proxy_enabled, _ = winreg.QueryValueEx(key, "ProxyEnable")
+        if proxy_enabled:
+            proxy_server, _ = winreg.QueryValueEx(key, "ProxyServer")
+            winreg.CloseKey(key)
+            if proxy_server:
+                p = proxy_server.split(";")[0].strip()
+                if "=" in p:
+                    p = p.split("=", 1)[1]
+                if not p.startswith("http"):
+                    p = "http://" + p
+                if _test_proxy(p):
+                    _proxy_cache = {"http": p, "https": p}
+                    _proxy_test_time = time.time()
+                    print(f"Proxy found via Windows system proxy: {p}")
+                    return _proxy_cache
+    except Exception:
+        pass
+
+    # 4. Auto-scan common proxy ports on localhost
     for port in COMMON_PROXY_PORTS:
         proxy_url = f"http://127.0.0.1:{port}"
         # Quick socket check first

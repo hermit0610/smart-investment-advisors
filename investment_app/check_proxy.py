@@ -2,7 +2,7 @@
 """Proxy auto-detect tool - finds your VPN proxy port"""
 import socket, sys
 
-COMMON_PORTS = [7890, 1080, 10809, 8888, 1087, 8118, 9090, 3128, 8080]
+COMMON_PORTS = [7890, 7897, 1080, 10809, 8888, 1087, 8118, 9090, 3128, 8080]
 
 print("=" * 50)
 print("  Proxy Detection Tool")
