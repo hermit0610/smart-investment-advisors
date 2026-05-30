@@ -980,6 +980,7 @@ def contract_analysis(symbol, df, strategy=None):
         "entry": {
             "price": entry_price,
             "direction": direction,
+            "leverage": user_leverage,
             "stop_loss": stop_loss,
             "stop_loss_pct": sl_display_pct,
             "stop_loss_source": sl_source,
@@ -1360,6 +1361,230 @@ def _build_contract_reason(a):
     return "\n".join(parts)
 
 
+# ============================================================
+# Risk Evaluation Engine
+# ============================================================
+
+def evaluate_contract_risk(allocation, portfolio, analyses):
+    """Evaluate risk for a single contract allocation.
+    Returns a risk score and detailed breakdown per position.
+    """
+    total = float(portfolio.get("total_assets", 10000))
+    risk_level = portfolio.get("risk_level", "medium")
+
+    sym = allocation.get("symbol", "")
+    alloc_amount = float(allocation.get("alloc_amount", 0) or allocation.get("amount", 0))
+    leverage = int(allocation.get("leverage", 3))
+    direction = allocation.get("direction", "long")
+
+    # Find the analysis for this symbol
+    analysis = None
+    for a in analyses:
+        if a["symbol"] == sym:
+            analysis = a
+            break
+
+    if not analysis:
+        return {"error": f"No analysis found for {sym}"}
+
+    entry = analysis.get("entry", {})
+    indicators = analysis.get("indicators", {})
+    costs = analysis.get("costs", {})
+    atr = indicators.get("atr", {})
+
+    # 1. Position size risk
+    position_pct = (alloc_amount / total * 100) if total > 0 else 0
+    pos_risk_level = "safe" if position_pct < 2 else ("moderate" if position_pct < 5 else ("high" if position_pct < 10 else "extreme"))
+    pos_risk_score = 0 if position_pct < 2 else (20 if position_pct < 5 else (50 if position_pct < 10 else 80))
+
+    # 2. Leverage-adjusted risk
+    atr_pct = float(atr.get("atr_pct", 1))
+    lev_risk_score = 0
+    lev_warnings = []
+    if leverage >= 10:
+        lev_risk_score += 40
+        lev_warnings.append(f"极高杠杆{leverage}x - 建议仅在明确趋势时使用")
+    elif leverage >= 5:
+        if atr_pct > 2:
+            lev_risk_score += 30
+            lev_warnings.append(f"高杠杆{leverage}x + 高波动率{atr_pct}% ATR - 风险叠加")
+        else:
+            lev_risk_score += 15
+    elif leverage >= 3:
+        lev_risk_score += 5
+
+    # 3. Stop loss risk
+    sl_pct = float(entry.get("stop_loss_pct", 2))
+    sl_risk_score = 0
+    if sl_pct > 5:
+        sl_risk_score += 30
+        lev_warnings.append(f"止损{sl_pct}%过大 - 单笔亏损可能严重影响账户")
+    elif sl_pct > 3:
+        sl_risk_score += 15
+    elif sl_pct < 0.5:
+        sl_risk_score += 10
+        lev_warnings.append(f"止损{sl_pct}%过紧 - 可能被市场噪音扫损")
+
+    # 4. Fee impact
+    total_cost = float(costs.get("total_cost_usd", 0))
+    expected_profit = float(costs.get("net_profit_usd", 0))
+    fee_risk_score = 0
+    if total_cost > 0:
+        fee_ratio = total_cost / (alloc_amount + 0.01) * 100
+        if fee_ratio > 2:
+            fee_risk_score += 25
+            lev_warnings.append(f"手续费占比{fee_ratio:.1f}%过高 - 小额仓位手续费侵蚀严重")
+
+    # 5. Net R:R viability
+    net_rr = float(entry.get("net_rr", 0))
+    rr_risk_score = 0
+    if net_rr < 1.0:
+        rr_risk_score += 35
+        lev_warnings.append("扣除费用后盈亏比不足1:1 - 策略期望值为负")
+    elif net_rr < 1.5:
+        rr_risk_score += 15
+        lev_warnings.append("盈亏比偏低 - 需要高胜率支撑")
+    elif net_rr < 2.0:
+        rr_risk_score += 5
+
+    # 6. Volatility compatibility
+    volatility = atr.get("volatility", "medium")
+    vol_risk_score = 0
+    if volatility == "high":
+        vol_risk_score += 20
+        if leverage >= 5:
+            lev_warnings.append("高波动 + 高杠杆 = 极其危险，建议降杠杆至3x以下")
+
+    # Combined risk score (0-100)
+    raw_risk = pos_risk_score * 0.25 + lev_risk_score * 0.25 + sl_risk_score * 0.15 + \
+               fee_risk_score * 0.10 + rr_risk_score * 0.15 + vol_risk_score * 0.10
+    risk_score = round(min(100, max(0, raw_risk)), 1)
+
+    if risk_score < 20:
+        risk_grade = "safe"
+        risk_label = "低风险"
+        risk_color = "#00e676"
+    elif risk_score < 40:
+        risk_grade = "moderate"
+        risk_label = "中等风险"
+        risk_color = "#ffb74d"
+    elif risk_score < 60:
+        risk_grade = "elevated"
+        risk_label = "较高风险"
+        risk_color = "#ff9800"
+    elif risk_score < 80:
+        risk_grade = "high"
+        risk_label = "高风险"
+        risk_color = "#ef5350"
+    else:
+        risk_grade = "extreme"
+        risk_label = "极高风险"
+        risk_color = "#ff1744"
+
+    return {
+        "symbol": sym,
+        "risk_score": risk_score,
+        "risk_grade": risk_grade,
+        "risk_label": risk_label,
+        "risk_color": risk_color,
+        "factors": {
+            "position_size_pct": round(position_pct, 2),
+            "position_risk": pos_risk_level,
+            "leverage": leverage,
+            "leverage_risk_score": lev_risk_score,
+            "sl_pct": sl_pct,
+            "net_rr": net_rr,
+            "fee_ratio": round((total_cost / (alloc_amount + 0.01) * 100), 2) if alloc_amount > 0 else 0,
+            "volatility": volatility,
+            "atr_pct": atr_pct,
+        },
+        "warnings": lev_warnings,
+        "total_cost": total_cost,
+        "expected_profit": expected_profit,
+    }
+
+
+def evaluate_portfolio_risk(plan, portfolio, analyses):
+    """Evaluate overall portfolio risk for a contract plan."""
+    allocations = plan.get("allocations", [])
+    total = float(portfolio.get("total_assets", 10000))
+
+    if not allocations:
+        return {"risk_score": 0, "risk_grade": "safe", "risk_label": "无风险",
+                "risk_color": "#00e676", "warnings": [], "summary": "无仓位，零风险。"}
+
+    per_position_risks = []
+    for alloc in allocations:
+        if alloc.get("alloc_amount", 0) > 0:
+            risk = evaluate_contract_risk(alloc, portfolio, analyses)
+            per_position_risks.append(risk)
+
+    if not per_position_risks:
+        return {"risk_score": 0, "risk_grade": "safe", "risk_label": "无风险",
+                "risk_color": "#00e676", "warnings": [], "summary": "无有效仓位。"}
+
+    # Portfolio-level metrics
+    total_invested = sum(float(a.get("alloc_amount", 0)) for a in allocations)
+    total_exposure_pct = (total_invested / total * 100) if total > 0 else 0
+    avg_risk = sum(r["risk_score"] for r in per_position_risks) / len(per_position_risks)
+
+    # Diversification penalty: fewer coins = higher concentration risk
+    unique_coins = len(set(a.get("symbol", "") for a in allocations))
+    concentration_penalty = max(0, 20 - unique_coins * 5)  # 1 coin = +15, 2 = +10, 3 = +5, 4+ = 0
+
+    # Mixed direction bonus: having both long and short reduces portfolio risk
+    has_long = any(a.get("direction") == "long" for a in allocations)
+    has_short = any(a.get("direction") == "short" for a in allocations)
+    hedge_bonus = -10 if (has_long and has_short) else 0  # -10 = reduces risk
+
+    portfolio_risk = min(100, max(0, avg_risk + concentration_penalty + hedge_bonus))
+
+    if portfolio_risk < 20:
+        grade = "safe"; label = "低风险"; color = "#00e676"
+    elif portfolio_risk < 40:
+        grade = "moderate"; label = "中等风险"; color = "#ffb74d"
+    elif portfolio_risk < 60:
+        grade = "elevated"; label = "较高风险"; color = "#ff9800"
+    elif portfolio_risk < 80:
+        grade = "high"; label = "高风险"; color = "#ef5350"
+    else:
+        grade = "extreme"; label = "极高风险"; color = "#ff1744"
+
+    # Build summary
+    summary_parts = []
+    summary_parts.append(f"总敞口{total_exposure_pct:.1f}%，投入${total_invested:,.0f}")
+    summary_parts.append(f"持仓{unique_coins}个币种，平均单仓风险{avg_risk:.0f}/100")
+    if concentration_penalty > 5:
+        summary_parts.append(f"集中度偏高(罚+{concentration_penalty:.0f})，建议分散至3个以上币种")
+    if hedge_bonus < 0:
+        summary_parts.append("多空对冲降低组合风险(-10)")
+    if total_exposure_pct > 20:
+        summary_parts.append("⚠ 总敞口超过20%，建议控制仓位")
+    if total_exposure_pct > 10:
+        summary_parts.append("建议预留充足保证金应对波动")
+
+    all_warnings = []
+    for r in per_position_risks:
+        for w in r.get("warnings", []):
+            all_warnings.append(f"[{r['symbol']}] {w}")
+
+    return {
+        "risk_score": round(portfolio_risk, 1),
+        "risk_grade": grade,
+        "risk_label": label,
+        "risk_color": color,
+        "per_position": per_position_risks,
+        "warnings": all_warnings[:8],  # Cap warnings
+        "summary": "；".join(summary_parts) + "。",
+        "total_exposure_pct": round(total_exposure_pct, 1),
+        "total_invested": round(total_invested, 2),
+        "unique_coins": unique_coins,
+        "concentration_penalty": concentration_penalty,
+        "hedge_bonus": hedge_bonus,
+        "avg_per_position_risk": round(avg_risk, 1),
+    }
+
+
 def generate_contract_plan(portfolio, analyses):
     """Generate contract/perpetual investment plan with long/short directions"""
     total = float(portfolio.get("total_assets", 10000))
@@ -1422,7 +1647,9 @@ def generate_contract_plan(portfolio, analyses):
                 "symbol": p["symbol"], "action": "long",
                 "action_label": "做多 LONG",
                 "alloc_amount": alloc, "entry_price": p["price"],
+                "leverage": p.get("entry", {}).get("leverage", 3),
                 "stop_loss": p.get("entry", {}).get("stop_loss"),
+                "stop_loss_source": p.get("entry", {}).get("stop_loss_source", "auto"),
                 "take_profit_1": p.get("entry", {}).get("take_profit_1"),
                 "take_profit_2": p.get("entry", {}).get("take_profit_2"),
                 "risk_reward": p.get("entry", {}).get("risk_reward", 0),
@@ -1449,7 +1676,9 @@ def generate_contract_plan(portfolio, analyses):
                 "symbol": p["symbol"], "action": "short",
                 "action_label": "做空 SHORT",
                 "alloc_amount": alloc, "entry_price": p["price"],
+                "leverage": p.get("entry", {}).get("leverage", 3),
                 "stop_loss": p.get("entry", {}).get("stop_loss"),
+                "stop_loss_source": p.get("entry", {}).get("stop_loss_source", "auto"),
                 "take_profit_1": p.get("entry", {}).get("take_profit_1"),
                 "take_profit_2": p.get("entry", {}).get("take_profit_2"),
                 "risk_reward": p.get("entry", {}).get("risk_reward", 0),
@@ -1660,7 +1889,20 @@ def api_plan():
         portfolio = data.get("portfolio", {})
         symbols = data.get("symbols", CRYPTO_LIST[:10])
         mode = data.get("mode", "spot")
-        strategy = data.get("strategy", {})
+        raw_strategy = data.get("strategy", {})
+
+        # Per-coin strategy support:
+        # strategy = {"support": ..., "resistance": ..., "coins": {"BTC": {"support": 72500}, "ETH": {...}}}
+        #   - "coins" dict maps symbol → per-coin overrides
+        #   - Top-level keys (support, resistance, etc.) are fallback defaults
+        #   - Per-coin overrides take precedence over top-level defaults
+        #   - For coins without any entry: empty strategy → auto Fib-based SL/TP
+        if isinstance(raw_strategy, dict):
+            per_coin_strategies = raw_strategy.get("coins", {})
+            base_strategy = {k: v for k, v in raw_strategy.items() if k != "coins"}
+        else:
+            per_coin_strategies = {}
+            base_strategy = {}
 
         analyses = []
         def _analyze_one(sym):
@@ -1669,7 +1911,9 @@ def api_plan():
                 df = get_klines(sym, interval=interval, limit=150)
                 if df is not None and not df.empty:
                     if mode == "contract":
-                        result = contract_analysis(sym, df, strategy)
+                        # Merge: per-coin override > base strategy > empty
+                        coin_strategy = {**base_strategy, **per_coin_strategies.get(sym, {})}
+                        result = contract_analysis(sym, df, coin_strategy)
                     else:
                         result = full_analysis(sym, df)
                     try:
@@ -1694,6 +1938,9 @@ def api_plan():
         if mode == "contract":
             analyses.sort(key=lambda x: -x["best_score"])
             plan = generate_contract_plan(portfolio, analyses)
+            # Evaluate risk for the contract plan
+            risk_eval = evaluate_portfolio_risk(plan, portfolio, analyses)
+            plan["risk_evaluation"] = risk_eval
         else:
             analyses.sort(key=lambda x: -x["score"])
             plan = generate_plan(portfolio, analyses)

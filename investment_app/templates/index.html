@@ -753,6 +753,10 @@ function renderMarketTable(data) {
 
 let isContractMode = false;
 let strategyConfig = {};  // User's strategy input
+let perCoinStrategy = {};  // Per-coin strategies: {"BTC": {support:..., resistance:...}, ...}
+let currentStrategyCoin = "BTC";  // Currently selected coin in strategy modal
+let planScope = "multi";  // "single" = only current coin, "multi" = all coins portfolio
+let fibFetchId = 0;  // Incrementing ID to cancel stale autoFillFibLevels requests
 
 function pickTag(el, group, val) {
   document.querySelectorAll('#leverageTags .tag').forEach(t => t.classList.remove('selected'));
@@ -760,33 +764,260 @@ function pickTag(el, group, val) {
   strategyConfig[group] = val;
 }
 
+// ---- Per-Coin Strategy Management ----
+function initStrategyCoinSelector() {
+  const sel = document.getElementById("strategyCoin");
+  if (!sel) return;
+  sel.innerHTML = "";
+  CRYPTO_LIST.forEach(function(c) {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c + "/USDT";
+    if (c === currentStrategyCoin) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Also update the quick tag buttons
+  updateStrategyCoinTags();
+}
+
+function updateStrategyCoinTags() {
+  const tagsEl = document.getElementById("strategyCoinTags");
+  if (!tagsEl) return;
+  let html = "";
+  CRYPTO_LIST.forEach(function(c) {
+    const hasStrategy = perCoinStrategy[c] && (perCoinStrategy[c].support || perCoinStrategy[c].resistance);
+    const cls = (c === currentStrategyCoin) ? " selected" : "";
+    const marker = hasStrategy ? " ★" : "";
+    html += "<span class='tag"+cls+"' onclick='switchStrategyCoin(\""+c+"\")'>"+c+marker+"</span>";
+  });
+  tagsEl.innerHTML = html;
+}
+
+function switchStrategyCoin(sym) {
+  saveStrategyForCurrentCoin();
+  currentStrategyCoin = sym;
+  document.getElementById("strategyCoin").value = sym;
+  loadStrategyForCoin(sym);
+  updateStrategyCoinTags();
+  // Auto-fill Fib levels for the newly selected coin
+  autoFillFibLevels();
+}
+
+function onStrategyCoinChange() {
+  const sym = document.getElementById("strategyCoin").value;
+  switchStrategyCoin(sym);
+}
+
+function saveStrategyForCurrentCoin() {
+  const leverage = parseInt(strategyConfig.leverage || "3");
+  perCoinStrategy[currentStrategyCoin] = {
+    support: parseFloat(document.getElementById("supLevel").value) || 0,
+    resistance: parseFloat(document.getElementById("resLevel").value) || 0,
+    max_loss: parseFloat(document.getElementById("maxLoss").value) || 2,
+    target_rr: parseFloat(document.getElementById("targetRR").value) || 2,
+    hold_periods: parseInt(document.getElementById("holdPeriod").value) || 24,
+    leverage: leverage,
+    notes: document.getElementById("tradeNotes").value.trim()
+  };
+}
+
+function loadStrategyForCoin(sym) {
+  const s = perCoinStrategy[sym] || {};
+  document.getElementById("supLevel").value = s.support || "";
+  document.getElementById("resLevel").value = s.resistance || "";
+  document.getElementById("maxLoss").value = s.max_loss || 2;
+  document.getElementById("targetRR").value = s.target_rr || 2;
+  document.getElementById("holdPeriod").value = s.hold_periods || 24;
+  document.getElementById("tradeNotes").value = s.notes || "";
+
+  // Update leverage tags
+  const leverage = s.leverage || 3;
+  document.querySelectorAll("#leverageTags .tag").forEach(function(t) {
+    t.classList.remove("selected");
+  });
+  document.querySelectorAll("#leverageTags .tag").forEach(function(t) {
+    const onclick = t.getAttribute("onclick") || "";
+    if (onclick.includes("'" + leverage + "'")) t.classList.add("selected");
+  });
+  strategyConfig.leverage = leverage;
+}
+
+function copyStrategyToAll() {
+  // Save current form values for the active coin first
+  saveStrategyForCurrentCoin();
+
+  // Read risk params directly from the form (these are percentage-based, safe to share)
+  var sharedMaxLoss = parseFloat(document.getElementById("maxLoss").value) || 2;
+  var sharedTargetRR = parseFloat(document.getElementById("targetRR").value) || 2;
+  var sharedHoldPeriods = parseInt(document.getElementById("holdPeriod").value) || 24;
+  var sharedLeverage = parseInt(strategyConfig.leverage || "3");
+
+  // Apply ONLY risk params to each coin — NEVER overwrite support/resistance
+  // Use field-by-field assignment instead of object replacement
+  CRYPTO_LIST.forEach(function(c) {
+    if (!perCoinStrategy[c]) {
+      perCoinStrategy[c] = {};
+    }
+    // CRITICAL: only set these 4 fields. support/resistance/notes are NOT touched.
+    perCoinStrategy[c].max_loss = sharedMaxLoss;
+    perCoinStrategy[c].target_rr = sharedTargetRR;
+    perCoinStrategy[c].hold_periods = sharedHoldPeriods;
+    perCoinStrategy[c].leverage = sharedLeverage;
+  });
+
+  updateStrategyCoinTags();
+  alert(currentLang === "zh"
+    ? "已将止损(" + sharedMaxLoss + "%)/止盈(1:" + sharedTargetRR + ")/杠杆(" + sharedLeverage + "x)复制到所有币种。每个币种的支撑/阻力位保持不变。"
+    : "Applied SL(" + sharedMaxLoss + "%)/TP(1:" + sharedTargetRR + ")/Leverage(" + sharedLeverage + "x) to all coins. Support/resistance per-coin preserved.");
+}
+
+async function autoFillFibLevels() {
+  const sym = currentStrategyCoin;
+  // Skip if this coin already has user-set values
+  if (perCoinStrategy[sym] && perCoinStrategy[sym].support) return;
+
+  // Prevent race conditions when user switches coins rapidly:
+  // Assign a unique request ID and only apply results if the coin hasn't changed
+  fibFetchId++;
+  const myFetchId = fibFetchId;
+
+  try {
+    const endpoint = isContractMode ? "/api/contract/" : "/api/analyze/";
+    const controller = new AbortController();
+    const timer = setTimeout(function() { controller.abort(); }, 4000);
+    const r = await fetch(endpoint + sym + "?interval=1h", { signal: controller.signal });
+    clearTimeout(timer);
+
+    // IMPORTANT: Only apply results if user hasn't switched coins since
+    if (currentStrategyCoin !== sym || myFetchId !== fibFetchId) {
+      // User already switched to another coin - discard this stale result
+      return;
+    }
+
+    const d = await r.json();
+    if (d && !d.error) {
+      const ind = d.indicators || {};
+      const fib = ind.fibonacci || d.fibonacci || {};
+      // Again check coin hasn't changed (parsing might have taken time)
+      if (currentStrategyCoin !== sym || myFetchId !== fibFetchId) return;
+      if (fib.support && fib.support[1] && fib.support[1] > 0) {
+        document.getElementById("supLevel").value = Math.round(fib.support[1]);
+      }
+      if (fib.resistance && fib.resistance[1] && fib.resistance[1] > 0) {
+        document.getElementById("resLevel").value = Math.round(fib.resistance[1]);
+      }
+    }
+  } catch(e) {
+    // Silently fail - user can enter manually
+  }
+}
+
 function closeModal() {
+  // Save current coin strategy before closing
+  saveStrategyForCurrentCoin();
   document.getElementById("strategyModal").classList.remove("show");
 }
 
 function openStrategyModal() {
   document.getElementById("strategyModal").classList.add("show");
-  // Pre-fill support/resistance from current analysis if available
+  // Inject per-coin selector UI on first open (avoiding HTML edit issues)
+  injectStrategyCoinUI();
+  // Initialize coin selector in modal
+  initStrategyCoinSelector();
+  // Load strategy for current coin
+  loadStrategyForCoin(currentStrategyCoin);
+  // Pre-fill support/resistance from last analysis if available
   if (lastAnalysisData) {
-    const ind = lastAnalysisData.indicators || {};
-    const fib = ind.fibonacci || lastAnalysisData.fibonacci || {};
-    if (fib.support && fib.support[1]) {
-      document.getElementById("supLevel").value = Math.round(fib.support[1]);
-    }
-    if (fib.resistance && fib.resistance[1]) {
-      document.getElementById("resLevel").value = Math.round(fib.resistance[1]);
+    const sym = currentStrategyCoin;
+    // Only auto-fill if this coin has no saved strategy yet
+    if (!perCoinStrategy[sym] || !perCoinStrategy[sym].support) {
+      autoFillFibLevels();
     }
   }
 }
 
+let strategyUIInjected = false;
+function injectStrategyCoinUI() {
+  if (strategyUIInjected) return;
+  strategyUIInjected = true;
+
+  const modalBox = document.querySelector("#strategyModal .modal-box");
+  if (!modalBox) return;
+
+  // Find the desc paragraph (2nd child) and insert after it
+  const descP = modalBox.querySelector("p[data-i18n='strategy_desc']");
+  const insertAfter = descP || modalBox.children[1];
+
+  // Create coin selector row
+  const coinRow = document.createElement("div");
+  coinRow.className = "form-row";
+  coinRow.innerHTML = `
+    <div class="half">
+      <label>🪙 <span data-i18n="coin">Coin</span></label>
+      <select id="strategyCoin" style="width:100%;" onchange="onStrategyCoinChange()"></select>
+    </div>
+    <div class="half" style="display:flex;align-items:flex-end;gap:6px;">
+      <button class="secondary" onclick="copyStrategyToAll()" style="font-size:11px;padding:6px 8px;flex:1;" title="Copy risk settings only (not support/resistance prices)">Copy Risk Params</button>
+      <button class="secondary" onclick="autoFillFibLevels()" style="font-size:11px;padding:6px 8px;flex:1;" title="Auto-fill from Fibonacci">Auto Fib</button>
+    </div>`;
+
+  // Create plan scope selector row
+  const scopeRow = document.createElement("div");
+  scopeRow.className = "form-row";
+  scopeRow.style.cssText = "margin-bottom:8px;";
+  scopeRow.innerHTML = `
+    <div style="flex:1;">
+      <label>${currentLang === "zh" ? "计划范围" : "Plan Scope"}</label>
+      <div class="tag-grid" id="planScopeTags" style="margin-top:4px;">
+        <span class="tag selected" data-scope="multi" onclick="switchPlanScope('multi')">${currentLang === "zh" ? "多币种组合" : "Multi-Coin Portfolio"}</span>
+        <span class="tag" data-scope="single" onclick="switchPlanScope('single')">${currentLang === "zh" ? "单币种深度" : "Single Coin Deep"}</span>
+      </div>
+    </div>`;
+
+  // Create coin tags row
+  const tagsRow = document.createElement("div");
+  tagsRow.className = "tag-grid";
+  tagsRow.id = "strategyCoinTags";
+  tagsRow.style.cssText = "margin-bottom:8px;";
+
+  // Insert after the description paragraph
+  if (insertAfter.nextSibling) {
+    insertAfter.parentNode.insertBefore(coinRow, insertAfter.nextSibling);
+    insertAfter.parentNode.insertBefore(scopeRow, coinRow.nextSibling);
+    insertAfter.parentNode.insertBefore(tagsRow, scopeRow.nextSibling);
+  } else {
+    insertAfter.parentNode.appendChild(coinRow);
+    insertAfter.parentNode.appendChild(scopeRow);
+    insertAfter.parentNode.appendChild(tagsRow);
+  }
+}
+
+function switchPlanScope(scope) {
+  planScope = scope;
+  // Update tag visual state
+  document.querySelectorAll("#planScopeTags .tag").forEach(function(t) {
+    t.classList.toggle("selected", t.dataset.scope === scope);
+  });
+}
+
 function submitStrategy() {
-  strategyConfig.support = parseFloat(document.getElementById("supLevel").value) || 0;
-  strategyConfig.resistance = parseFloat(document.getElementById("resLevel").value) || 0;
-  strategyConfig.max_loss = parseFloat(document.getElementById("maxLoss").value) || 2;
-  strategyConfig.target_rr = parseFloat(document.getElementById("targetRR").value) || 2;
-  strategyConfig.hold_periods = parseInt(document.getElementById("holdPeriod").value) || 24;
-  strategyConfig.notes = document.getElementById("tradeNotes").value.trim();
+  // Save current coin's strategy
+  saveStrategyForCurrentCoin();
+
+  // Build strategy config with per-coin data
+  // "coins" dict maps each symbol to its own strategy params
+  // Top-level keys are fallback defaults for coins without explicit config
+  strategyConfig.coins = JSON.parse(JSON.stringify(perCoinStrategy));
+
+  // Also set top-level defaults from current coin (for backward compatibility)
+  const currentCoinStrategy = perCoinStrategy[currentStrategyCoin] || {};
+  strategyConfig.support = currentCoinStrategy.support || 0;
+  strategyConfig.resistance = currentCoinStrategy.resistance || 0;
+  strategyConfig.max_loss = currentCoinStrategy.max_loss || 2;
+  strategyConfig.target_rr = currentCoinStrategy.target_rr || 2;
+  strategyConfig.hold_periods = currentCoinStrategy.hold_periods || 24;
   strategyConfig.leverage = parseInt(strategyConfig.leverage || "3");
+  strategyConfig.notes = currentCoinStrategy.notes || "";
   strategyConfig.mode = isContractMode ? "contract" : "spot";
   closeModal();
   doGeneratePlan();
@@ -846,7 +1077,12 @@ async function analyzeCoin() {
   document.getElementById("analysisContent").innerHTML = "";
   try {
     const endpoint = isContractMode ? "/api/contract/" : "/api/analyze/";
-    const r = await fetch(endpoint + sym + "?interval=" + interval);
+    let url = endpoint + sym + "?interval=" + interval;
+    // Pass per-coin strategy for single-coin analysis too
+    if (isContractMode && perCoinStrategy[sym]) {
+      url += "&strategy=" + encodeURIComponent(JSON.stringify(perCoinStrategy[sym]));
+    }
+    const r = await fetch(url);
     const d = await r.json();
     if(d.error) { document.getElementById("analysisContent").innerHTML = "<p style='color:#ef5350;'>"+d.error+"</p>"; return; }
     lastAnalysisData = d;
@@ -1115,16 +1351,36 @@ async function doGeneratePlan() {
     var parts = x.split(":"); return {symbol:parts[0]?.trim(),amount:parseFloat(parts[1])||0};
   });
   var mode = strategyConfig.mode || (isContractMode ? "contract" : "spot");
+
+  // Determine symbols based on plan scope
+  var symbols;
+  if (planScope === "single") {
+    // Only the currently selected coin
+    symbols = [currentStrategyCoin];
+  } else {
+    // All coins with saved strategies, or default top 10
+    var coinsWithStrategy = Object.keys(perCoinStrategy).filter(function(c) {
+      return perCoinStrategy[c] && (perCoinStrategy[c].support || perCoinStrategy[c].resistance);
+    });
+    symbols = coinsWithStrategy.length >= 2 ? coinsWithStrategy : ["BTC","ETH","SOL","BNB","XRP","DOGE","ADA","AVAX","DOT","LINK"];
+  }
+
   document.getElementById("planCard").style.display = "block";
+  var planTitle = document.getElementById("planCardTitle");
+  planTitle.textContent = planScope === "single"
+    ? (isContractMode ? (currentLang === "zh" ? currentStrategyCoin + " 合约交易计划" : currentStrategyCoin + " Contract Plan") : (currentLang === "zh" ? currentStrategyCoin + " 投资计划" : currentStrategyCoin + " Investment Plan"))
+    : (isContractMode ? t("contract_plan_title") : t("investment_plan"));
+
   document.getElementById("planContent").innerHTML = "<div class='loading'><div class='spinner'></div><p>"+t("generating_plan")+"</p></div>";
   try {
     var r = await fetch("/api/plan", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         portfolio:{total_assets:total,cash:cash,risk_level:risk,holdings:holdings},
-        symbols:["BTC","ETH","SOL","BNB","XRP","DOGE","ADA","AVAX","DOT","LINK"],
+        symbols: symbols,
         mode: mode,
-        strategy: strategyConfig
+        strategy: strategyConfig,
+        plan_scope: planScope
       })
     });
     var data = await r.json();
@@ -1195,6 +1451,62 @@ function renderPlan(plan, analyses) {
 
 function renderContractPlan(plan, analyses) {
   var html = "";
+
+  // ---- Risk Evaluation Section ----
+  var re = plan.risk_evaluation;
+  if (re) {
+    var riskColor = re.risk_color || "#ffb74d";
+    html += "<div style='background:rgba(255,183,77,0.05);border:1px solid "+riskColor+";border-radius:10px;padding:14px;margin-bottom:16px;'>";
+    html += "<div style='display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;'>";
+    html += "<b style='font-size:1.1em;color:"+riskColor+";'>⚠ "+(currentLang === "zh" ? "风险评估" : "Risk Evaluation")+"</b>";
+    html += "<span style='font-size:1.3em;font-weight:bold;color:"+riskColor+";'>"+(re.risk_score||0)+"/100</span>";
+    html += "<span class='direction-badge' style='background:"+riskColor+"22;color:"+riskColor+";border:1px solid "+riskColor+"44;'>"+(re.risk_label||"-")+"</span>";
+    html += "</div>";
+
+    // Portfolio-level metrics
+    html += "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0;'>";
+    html += "<div style='text-align:center;background:#252d4a;padding:8px;border-radius:6px;'><div style='font-size:18px;font-weight:bold;color:#4fc3f7;'>"+(re.total_exposure_pct||0)+"%</div><div style='font-size:10px;color:#8090b0;'>"+(currentLang === "zh" ? "总敞口" : "Exposure")+"</div></div>";
+    html += "<div style='text-align:center;background:#252d4a;padding:8px;border-radius:6px;'><div style='font-size:18px;font-weight:bold;color:#26c6da;'>$"+(re.total_invested||0).toLocaleString()+"</div><div style='font-size:10px;color:#8090b0;'>"+(currentLang === "zh" ? "投入资金" : "Invested")+"</div></div>";
+    html += "<div style='text-align:center;background:#252d4a;padding:8px;border-radius:6px;'><div style='font-size:18px;font-weight:bold;color:#e0e0e0;'>"+(re.unique_coins||0)+"</div><div style='font-size:10px;color:#8090b0;'>"+(currentLang === "zh" ? "币种数" : "Coins")+"</div></div>";
+    html += "<div style='text-align:center;background:#252d4a;padding:8px;border-radius:6px;'><div style='font-size:18px;font-weight:bold;color:#e0e0e0;'>"+(re.avg_per_position_risk||0)+"</div><div style='font-size:10px;color:#8090b0;'>"+(currentLang === "zh" ? "平均风险" : "Avg Risk")+"</div></div>";
+    html += "</div>";
+
+    // Summary text
+    html += "<div style='font-size:12px;color:#8090b0;line-height:1.5;margin-bottom:6px;'>"+(re.summary||"")+"</div>";
+
+    // Per-position risk details
+    if (re.per_position && re.per_position.length > 0) {
+      html += "<details><summary style='cursor:pointer;color:#4fc3f7;font-size:12px;'>"+(currentLang === "zh" ? "逐仓风险详情" : "Per-Position Risk Details")+" ▼</summary>";
+      html += "<div style='margin-top:6px;'>";
+      re.per_position.forEach(function(pr) {
+        if (pr.error) return;
+        var prc = pr.risk_color || "#ffb74d";
+        html += "<div style='background:#252d4a;padding:8px;border-radius:6px;margin-bottom:6px;font-size:12px;'>";
+        html += "<b>"+pr.symbol+"</b> ";
+        html += "<span style='color:"+prc+";font-weight:bold;'>"+(pr.risk_label||"-")+" ("+(pr.risk_score||0)+"/100)</span> ";
+        html += "| "+(currentLang === "zh" ? "仓位" : "Pos")+": "+(pr.factors?.position_size_pct||0).toFixed(1)+"% ";
+        html += "| "+(currentLang === "zh" ? "杠杆" : "Lev")+": "+(pr.factors?.leverage||"-")+"x ";
+        html += "| SL: "+(pr.factors?.sl_pct||0)+"% ";
+        html += "| Net R:R 1:"+(pr.factors?.net_rr||0).toFixed(1);
+        if (pr.warnings && pr.warnings.length > 0) {
+          pr.warnings.forEach(function(w) {
+            html += "<br><span style='color:#ef5350;'>⚠ "+w+"</span>";
+          });
+        }
+        html += "</div>";
+      });
+      html += "</div></details>";
+    }
+
+    // Global warnings
+    if (re.warnings && re.warnings.length > 0) {
+      re.warnings.forEach(function(w) {
+        html += "<div class='warning' style='font-size:12px;margin:4px 0;'>"+w+"</div>";
+      });
+    }
+    html += "</div>"; // Close risk evaluation card
+  }
+
   // Header: outlook + scores + leverage
   html += "<div style='margin-bottom:16px;'>";
   var oc = plan.outlook==="bullish"?"#00e676":plan.outlook==="bearish"?"#ef5350":"#ffb74d";
@@ -1220,7 +1532,7 @@ function renderContractPlan(plan, analyses) {
       html += "<td><b>"+a.symbol+"</b></td>";
       html += "<td>$"+(a.alloc_amount?.toLocaleString()||a.amount||"-")+"</td>";
       html += "<td>$"+(a.entry_price?.toLocaleString()||"-")+"</td>";
-      html += "<td style='color:#ef5350;'>$"+(a.stop_loss?.toLocaleString()||"-")+"</td>";
+      html += "<td style='color:#ef5350;'>$"+(a.stop_loss?.toLocaleString()||"-")+(a.stop_loss_source?" <span style='font-size:10px;color:#8090b0;'>"+(a.stop_loss_source)+"</span>":"")+"</td>";
       html += "<td><span style='color:#00e676;'>$"+(a.take_profit_1?.toLocaleString()||"-")+"</span> / $"+(a.take_profit_2?.toLocaleString()||"-")+"</td>";
       html += "<td><b>1:"+(a.risk_reward||"-")+"</b></td>";
       html += "<td>";
