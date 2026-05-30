@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python)",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('okx_plugin.py', doraise=True\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -c \"import okx_plugin; print\\('Import OK'\\); print\\('Classes:', [x for x in dir\\(okx_plugin\\) if x[0].isupper\\(\\)]\\)\")",
+      "Bash(ls -la *.py *.bat *.json *.md *.txt)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('okx_plugin.py', doraise=True\\); print\\('okx_plugin.py syntax OK'\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('app.py', doraise=True\\); print\\('Syntax OK'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -X utf8 -c ' *)",
+      "Bash(python *)",
+      "Bash(curl -s http://127.0.0.1:5000/)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $NF}')",
+      "Bash(xargs -r kill -9)",
+      "Bash(taskkill //F //PID 15040 //PID 7044 //PID 20100)",
+      "Bash(curl -s http://127.0.0.1:5000/api/analyze/BTC?interval=1d)",
+      "Bash(curl -s -X POST http://127.0.0.1:5000/api/plan -H \"Content-Type: application/json\" -d \"{\\\\\"portfolio\\\\\":{\\\\\"total_assets\\\\\":10000,\\\\\"cash\\\\\":3000,\\\\\"risk_level\\\\\":\\\\\"medium\\\\\",\\\\\"holdings\\\\\":[]},\\\\\"symbols\\\\\":[\\\\\"BTC\\\\\",\\\\\"ETH\\\\\",\\\\\"SOL\\\\\"]}\")",
+      "Bash(curl *)",
+      "Bash(xargs -r taskkill //F //PID)",
+      "Bash(python -c \"import os, signal; pids = [int\\(l.split\\(\\)[-1]\\) for l in os.popen\\('netstat -ano | findstr :5000 | findstr LISTENING'\\).read\\(\\).strip\\(\\).split\\(chr\\(10\\)\\) if l.strip\\(\\)]; [os.kill\\(p, signal.SIGTERM\\) for p in pids]\")",
+      "Bash(nohup python investment_app/app.py)",
+      "Bash(xxd \"C:/Users/Administrator/Desktop/first cc/investment_app/config.json\")",
+      "Read(//tmp/**)",
+      "mcp__ide__getDiagnostics",
+      "Bash(dir *)",
+      "Bash(cmd *)",
+      "Bash(powershell *)",
+      "Bash(C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python314\\\\python.exe *)",
+      "Bash(/c/Users/Administrator/AppData/Local/Programs/Python/Python314/python.exe *)",
+      "Bash(D:/Git/cmd/git.exe *)"
+    ]
+  }
+}

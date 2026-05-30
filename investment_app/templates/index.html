@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Investment Advisor</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI','Microsoft YaHei','PingFang SC',system-ui,sans-serif; background:#0f1119; color:#e0e0e0; min-height:100vh; }
+.header { background:linear-gradient(135deg,#1a1f35,#252d4a); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #2a2f45; flex-wrap:wrap; gap:10px; }
+.header h1 { font-size:1.4em; background:linear-gradient(90deg,#4fc3f7,#26c6da); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.header-right { display:flex; align-items:center; gap:16px; }
+.lang-btn { background:#252d4a; border:1px solid #3a4060; color:#e0e0e0; padding:6px 14px; border-radius:20px; cursor:pointer; font-size:13px; font-weight:normal; transition:0.2s; }
+.lang-btn:hover { background:#3a4060; }
+.lang-btn.active { background:linear-gradient(135deg,#1e88e5,#26c6da); border-color:transparent; color:#fff; }
+.container { max-width:1400px; margin:0 auto; padding:20px; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+.card { background:#1a1f35; border-radius:14px; padding:20px; border:1px solid #2a2f45; }
+.card h3 { color:#4fc3f7; margin-bottom:12px; font-size:1em; }
+.controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+select,input,button { background:#252d4a; border:1px solid #3a4060; color:#e0e0e0; padding:10px 16px; border-radius:8px; font-size:14px; }
+button { cursor:pointer; background:linear-gradient(135deg,#1e88e5,#26c6da); border:none; color:#fff; font-weight:bold; transition:0.2s; }
+button:hover { opacity:0.9; transform:translateY(-1px); }
+button.secondary { background:#252d4a; border:1px solid #3a4060; }
+input[type=range] { accent-color:#4fc3f7; }
+.coin-combo { position:relative; flex:1; min-width:120px; }
+.coin-combo input { width:100%; padding-right:30px; text-transform:uppercase; }
+.coin-combo .coin-dropdown-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#8090b0; cursor:pointer; font-size:12px; padding:2px 4px; }
+.coin-combo .coin-dropdown-btn:hover { color:#4fc3f7; }
+.coin-combo .coin-list { display:none; position:absolute; top:100%; left:0; right:0; background:#252d4a; border:1px solid #3a4060; border-radius:0 0 8px 8px; z-index:100; max-height:200px; overflow-y:auto; }
+.coin-combo .coin-list.open { display:block; }
+.coin-combo .coin-list div { padding:8px 12px; cursor:pointer; font-size:13px; }
+.coin-combo .coin-list div:hover { background:#3a4060; color:#4fc3f7; }
+.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:bold; }
+.badge-buy { background:rgba(38,198,218,0.2); color:#26c6da; }
+.badge-sell { background:rgba(239,83,80,0.2); color:#ef5350; }
+.badge-hold { background:rgba(255,183,77,0.2); color:#ffb74d; }
+.price-up { color:#26c6da; }
+.price-down { color:#ef5350; }
+.score-bar { height:8px; border-radius:4px; background:#252d4a; margin:8px 0; }
+.score-fill { height:100%; border-radius:4px; transition:width 0.5s; }
+table { width:100%; border-collapse:collapse; }
+th,td { padding:10px 12px; text-align:left; border-bottom:1px solid #2a2f45; font-size:13px; }
+th { color:#8090b0; font-weight:500; }
+.warning { background:rgba(239,83,80,0.1); border-left:3px solid #ef5350; padding:10px 14px; margin:8px 0; border-radius:0 8px 8px 0; }
+.loading { text-align:center; padding:40px; color:#8090b0; }
+.spinner { display:inline-block; width:30px; height:30px; border:3px solid #2a2f45; border-top:3px solid #4fc3f7; border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg);} }
+.tabs { display:flex; gap:4px; margin-bottom:16px; }
+.tab { padding:8px 20px; background:#252d4a; border-radius:8px 8px 0 0; cursor:pointer; border:1px solid transparent; }
+.tab.active { background:#1a1f35; border-color:#2a2f45; border-bottom-color:#1a1f35; color:#4fc3f7; }
+.chart-container { height:350px; }
+.input-group { margin-bottom:12px; }
+.input-group label { display:block; color:#8090b0; margin-bottom:4px; font-size:13px; }
+.signal-strong_buy{color:#00e676;} .signal-buy{color:#69f0ae;} .signal-weak_buy{color:#b9f6ca;}
+.signal-hold{color:#ffb74d;} .signal-weak_sell{color:#ff8a80;} .signal-sell{color:#ff5252;} .signal-strong_sell{color:#ff1744;}
+.toggle-slider.active { background:linear-gradient(135deg,#ff9800,#ef5350) !important; border-color:#ef5350 !important; }
+.contract-long { color:#00e676; }
+.contract-short { color:#ef5350; }
+.direction-badge { display:inline-block; padding:4px 12px; border-radius:20px; font-size:13px; font-weight:bold; }
+.direction-long { background:rgba(0,230,118,0.15); color:#00e676; border:1px solid rgba(0,230,118,0.3); }
+.direction-short { background:rgba(239,83,80,0.15); color:#ef5350; border:1px solid rgba(239,83,80,0.3); }
+.direction-hold { background:rgba(255,183,77,0.15); color:#ffb74d; border:1px solid rgba(255,183,77,0.3); }
+.score-dual { display:flex; gap:12px; margin:8px 0; }
+.score-col { flex:1; text-align:center; padding:8px; border-radius:8px; background:#252d4a; }
+.score-col.long { border-top:2px solid #00e676; }
+.score-col.short { border-top:2px solid #ef5350; }
+.entry-card { padding:12px; border-radius:8px; margin:8px 0; }
+.entry-card.long-entry { background:rgba(0,230,118,0.08); border:1px solid rgba(0,230,118,0.2); }
+.entry-card.short-entry { background:rgba(239,83,80,0.08); border:1px solid rgba(239,83,80,0.2); }
+.modal-overlay { display:none; position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.7); z-index:999; justify-content:center; align-items:center; }
+.modal-overlay.show { display:flex; }
+.modal-box { background:#1a1f35; border:1px solid #2a2f45; border-radius:14px; padding:24px; max-width:500px; width:90%; max-height:80vh; overflow-y:auto; }
+.modal-box h3 { color:#4fc3f7; margin-bottom:16px; }
+.modal-box .form-row { display:flex; gap:12px; margin-bottom:12px; }
+.modal-box .form-row label { flex:1; color:#8090b0; font-size:13px; }
+.modal-box .form-row input { width:100%; }
+.modal-box .form-row .half { flex:1; }
+.modal-box .btn-row { display:flex; gap:10px; margin-top:16px; }
+.tag-grid { display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 8px 0; }
+.tag { padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer; background:#252d4a; border:1px solid #3a4060; color:#8090b0; transition:0.2s; }
+.tag:hover { border-color:#4fc3f7; color:#4fc3f7; }
+.tag.selected { background:rgba(79,195,247,0.2); border-color:#4fc3f7; color:#4fc3f7; }
+@media(max-width:900px){.grid,.grid3{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1 data-i18n="app_title">Smart Investment Advisor</h1>
+  <div class="header-right">
+    <span style="color:#8090b0;font-size:13px;">MACD + Volume + Fibonacci</span>
+    <button class="lang-btn active" id="langEN" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" id="langZH" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+<div class="container">
+
+<!-- Proxy Setup Card (shown when demo mode) -->
+<div id="proxySetupCard" class="card" style="display:none;margin-bottom:20px;border-color:#ff9800;">
+  <h3 style="color:#ff9800;">⚡ <span data-i18n="proxy_setup_title">Quick Proxy Setup</span></h3>
+  <p style="color:#8090b0;font-size:13px;margin-bottom:12px;" data-i18n="proxy_setup_desc">Cannot connect to crypto APIs. Enter your proxy address below to get live prices:</p>
+  <div class="controls" style="align-items:center;">
+    <input type="text" id="proxyInput" placeholder="http://127.0.0.1:7890" style="flex:1;min-width:200px;">
+    <button onclick="setProxy()" data-i18n="proxy_save_btn">Save &amp; Test</button>
+    <span style="color:#8090b0;font-size:12px;margin-left:8px;" data-i18n="proxy_quick_tip">Quick:</span>
+    <button class="secondary" onclick="quickProxy('7890')" style="font-size:12px;padding:6px 10px;">Clash:7890</button>
+    <button class="secondary" onclick="quickProxy('10809')" style="font-size:12px;padding:6px 10px;">V2Ray:10809</button>
+    <button class="secondary" onclick="quickProxy('1080')" style="font-size:12px;padding:6px 10px;">SS:1080</button>
+  </div>
+  <div id="proxyMsg" style="margin-top:8px;font-size:13px;"></div>
+</div>
+
+<!-- Portfolio Input Section -->
+<div class="card" style="margin-bottom:20px;">
+  <h3 data-i18n="portfolio_title">Your Portfolio</h3>
+  <div class="grid3">
+    <div class="input-group">
+      <label data-i18n="total_assets">Total Assets (USD)</label>
+      <input type="number" id="totalAssets" value="10000" style="width:100%;">
+    </div>
+    <div class="input-group">
+      <label data-i18n="available_cash">Available Cash (USD)</label>
+      <input type="number" id="cash" value="3000" style="width:100%;">
+    </div>
+    <div class="input-group">
+      <label data-i18n="risk_level">Risk Level</label>
+      <select id="riskLevel" style="width:100%;">
+        <option value="low" data-i18n="risk_low">Low (Conservative)</option>
+        <option value="medium" selected data-i18n="risk_medium">Medium (Balanced)</option>
+        <option value="high" data-i18n="risk_high">High (Aggressive)</option>
+      </select>
+    </div>
+  </div>
+  <div class="input-group">
+    <label data-i18n="holdings_label">Current Holdings (comma separated, e.g. BTC:0.05,ETH:1.2)</label>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <input type="text" id="holdings" placeholder="BTC:0.05,ETH:1.2" style="flex:1;">
+      <label style="display:flex;align-items:center;gap:4px;color:#8090b0;font-size:13px;cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" id="noHoldings" onchange="toggleHoldings()">
+        <span data-i18n="no_position">无持仓</span>
+      </label>
+    </div>
+  </div>
+  <div class="controls" style="margin-top:12px;">
+    <button onclick="generatePlan()" data-i18n="gen_plan_btn">Generate Investment Plan</button>
+    <button class="secondary" onclick="analyzeSingle()" data-i18n="analyze_single_btn">Analyze Single Coin</button>
+  </div>
+</div>
+
+<!-- Market Overview -->
+<div id="marketOverview" class="card" style="margin-bottom:20px;">
+  <h3 data-i18n="market_overview">Market Overview</h3>
+  <span id="demoBadge" style="display:none;background:#ff9800;color:#000;padding:2px 10px;border-radius:12px;font-size:11px;margin-left:8px;" data-i18n="demo_mode">DEMO MODE</span>
+  <div id="marketContent" class="loading"><div class="spinner"></div><p data-i18n="loading_market">Loading market data...</p></div>
+</div>
+
+<div class="grid" style="margin-bottom:20px;">
+  <!-- Analysis Results -->
+  <div class="card">
+    <h3 data-i18n="tech_analysis">Technical Analysis</h3>
+    <!-- Mode Tabs -->
+    <div class="mode-tabs" style="display:flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #3a4060;">
+      <div id="modeSpot" class="mode-tab active" onclick="switchMode('spot')" style="flex:1;text-align:center;padding:10px;cursor:pointer;font-weight:bold;font-size:14px;background:linear-gradient(135deg,#1e88e5,#26c6da);color:#fff;transition:0.2s;" data-i18n="spot_mode">📊 现货</div>
+      <div id="modeContract" class="mode-tab" onclick="switchMode('contract')" style="flex:1;text-align:center;padding:10px;cursor:pointer;font-weight:bold;font-size:14px;background:#252d4a;color:#8090b0;transition:0.2s;" data-i18n="contract_mode">📈 合约</div>
+    </div>
+    <div class="controls" style="margin-bottom:12px;">
+      <div class="coin-combo">
+        <input type="text" id="coinInput" placeholder="BTC" value="BTC" autocomplete="off">
+        <button class="coin-dropdown-btn" onclick="toggleCoinList()" title="Select coin">▼</button>
+        <div class="coin-list" id="coinList">
+        </div>
+      </div>
+      <select id="intervalSelect">
+        <option value="1d" data-i18n="interval_daily">Daily</option>
+        <option value="1h" data-i18n="interval_hourly">Hourly</option>
+        <option value="1wk" data-i18n="interval_weekly">Weekly</option>
+      </select>
+      <button onclick="analyzeCoin()" data-i18n="analyze_btn">Analyze</button>
+    </div>
+    <div id="analysisResult">
+      <div class="loading" id="analysisLoading" style="display:none;"><div class="spinner"></div><p data-i18n="analyzing">Analyzing...</p></div>
+      <div id="analysisContent"><p style="color:#8090b0;" data-i18n="select_coin_hint">Select or type a coin symbol and click Analyze to see technical indicators.</p></div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="card">
+    <h3 data-i18n="price_chart">Price Chart</h3>
+    <div id="chartContainer" class="chart-container"><p style="color:#8090b0;text-align:center;padding-top:150px;" data-i18n="run_analysis_hint">Run analysis to see chart</p></div>
+  </div>
+</div>
+
+<!-- Investment Plan -->
+<div class="card" id="planCard" style="display:none;">
+  <h3 id="planCardTitle" data-i18n="investment_plan">Investment Plan</h3>
+  <div id="planContent"></div>
+</div>
+
+<!-- Strategy Config Modal -->
+<div class="modal-overlay" id="strategyModal">
+  <div class="modal-box">
+    <h3 data-i18n="strategy_config">⚙ Strategy Configuration</h3>
+    <p style="color:#8090b0;font-size:12px;margin-bottom:12px;" data-i18n="strategy_desc">Enter your observed market levels for precise SL/TP. Leave blank for auto-calculation.</p>
+
+    <div class="form-row">
+      <div class="half"><label data-i18n="support_level">Support Level ($)</label><input type="number" id="supLevel" placeholder="e.g. 72500" step="any"></div>
+      <div class="half"><label data-i18n="resistance_level">Resistance Level ($)</label><input type="number" id="resLevel" placeholder="e.g. 75000" step="any"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="half"><label data-i18n="max_loss_pct">Max Loss %</label><input type="number" id="maxLoss" placeholder="2" step="0.1" value="2"></div>
+      <div class="half"><label data-i18n="target_rr">Target R:R</label><input type="number" id="targetRR" placeholder="2" step="0.1" value="2"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="half"><label data-i18n="hold_period">Hold Period</label>
+        <select id="holdPeriod" style="width:100%;"><option value="4">4H Scalp</option><option value="12">12H Intraday</option><option value="24" selected>1-3 Day Swing</option><option value="72">3-7 Day Position</option></select>
+      </div>
+    </div>
+
+    <div class="form-row"><label data-i18n="leverage_label">Leverage</label></div>
+    <div class="tag-grid" id="leverageTags">
+      <span class="tag" onclick="pickTag(this,'leverage','1')">1x</span>
+      <span class="tag" onclick="pickTag(this,'leverage','2')">2x</span>
+      <span class="tag selected" onclick="pickTag(this,'leverage','3')">3x</span>
+      <span class="tag" onclick="pickTag(this,'leverage','5')">5x</span>
+      <span class="tag" onclick="pickTag(this,'leverage','10')">10x</span>
+      <span class="tag" onclick="pickTag(this,'leverage','20')">20x</span>
+    </div>
+
+    <div class="form-row" style="margin-top:8px;">
+      <label data-i18n="notes">Notes</label>
+      <input type="text" id="tradeNotes" placeholder="e.g. BTC halving play, ETH ETF news..." style="width:100%;">
+    </div>
+
+    <div class="btn-row">
+      <button class="secondary" onclick="closeModal()" data-i18n="cancel">Cancel</button>
+      <button onclick="submitStrategy()" data-i18n="gen_plan_btn" style="flex:1;">Generate Plan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// i18n Language Packs
+// ============================================================
+const I18N = {
+  en: {
+    app_title: "Smart Investment Advisor",
+    portfolio_title: "Your Portfolio",
+    total_assets: "Total Assets (USD)",
+    available_cash: "Available Cash (USD)",
+    risk_level: "Risk Level",
+    risk_low: "Low (Conservative)",
+    risk_medium: "Medium (Balanced)",
+    risk_high: "High (Aggressive)",
+    holdings_label: "Current Holdings (comma separated, e.g. BTC:0.05,ETH:1.2)",
+    gen_plan_btn: "Generate Investment Plan",
+    analyze_single_btn: "Analyze Single Coin",
+    market_overview: "Market Overview",
+    demo_mode: "DEMO MODE",
+    loading_market: "Loading market data...",
+    tech_analysis: "Technical Analysis",
+    interval_daily: "Daily",
+    interval_hourly: "Hourly",
+    interval_weekly: "Weekly",
+    analyze_btn: "Analyze",
+    analyzing: "Analyzing...",
+    select_coin_hint: "Select or type a coin symbol and click Analyze to see technical indicators.",
+    price_chart: "Price Chart",
+    run_analysis_hint: "Run analysis to see chart",
+    investment_plan: "Investment Plan",
+    fetching_prices: "Fetching prices...",
+    network_unavailable: "Network unavailable - using demo data. Try VPN/proxy for live prices.",
+    strong_buy: "STRONG BUY",
+    buy: "BUY",
+    weak_buy: "WEAK BUY",
+    hold: "HOLD",
+    weak_sell: "WEAK SELL",
+    sell: "SELL",
+    strong_sell: "STRONG SELL",
+    uptrend: "UPTREND",
+    downtrend: "DOWNTREND",
+    sideways: "SIDEWAYS",
+    score: "Score",
+    macd: "MACD",
+    volume: "Volume",
+    fibonacci: "Fibonacci",
+    trend_label: "Trend",
+    position: "Position",
+    entry_suggestion: "Entry Suggestion",
+    exit_suggestion: "Exit Suggestion",
+    zone: "Zone",
+    stop_loss: "Stop Loss",
+    target: "Target",
+    position_pct: "Position",
+    fib_levels: "Fibonacci Levels",
+    retrace: "Retrace",
+    extend: "Extend",
+    price: "Price",
+    market_outlook: "Market Outlook",
+    avg_score: "Avg Score",
+    reserve: "Reserve",
+    generating_plan: "Generating investment plan...",
+    no_signals: "No strong buy/sell signals. Consider holding.",
+    all_coins: "All Analyzed Coins",
+    action: "Action",
+    symbol: "Symbol",
+    amount: "Amount",
+    entry: "Entry",
+    reason: "Reason",
+    coin: "Coin",
+    chg_24h: "24h Chg",
+    error_prefix: "Error",
+    bullish: "BULLISH",
+    bearish: "BEARISH",
+    mixed: "MIXED",
+    increasing: "Increasing",
+    decreasing: "Decreasing",
+    stable: "Stable",
+    near_support: "Near Support",
+    near_resistance: "Near Resistance",
+    mid_range: "Mid Range",
+    rising: "Rising",
+    falling: "Falling",
+    flat: "Flat",
+    scoring_basis: "Scoring Basis",
+    score_formula: "Formula",
+    demo_warning_title: "⚠ Demo Mode",
+    demo_warning_desc: "Cannot connect to crypto APIs. Prices are simulated. To get live data, set up a VPN/proxy. Common proxy ports: Clash=7890, V2Ray=10809, Shadowsocks=1080. Edit config.json or set HTTPS_PROXY environment variable.",
+    proxy_tip: "Tip: Set proxy in config.json to enable live prices. Common ports: 7890 (Clash), 10809 (V2Ray), 1080 (SS).",
+    live_data: "Live Data",
+    demo_data: "Demo Data",
+    proxy_setup_title: "Quick Proxy Setup",
+    proxy_setup_desc: "Cannot connect to crypto APIs. Enter your proxy address below to get live prices:",
+    proxy_save_btn: "Save & Test",
+    proxy_quick_tip: "Quick:",
+    proxy_testing: "Testing proxy...",
+    proxy_enter_hint: "Please enter a proxy address (e.g. http://127.0.0.1:7890)",
+    no_position: "No Position",
+    // Contract mode
+    spot_mode: "Spot",
+    contract_mode: "Contract",
+    long_score: "LONG Score",
+    short_score: "SHORT Score",
+    confidence: "Confidence",
+    rsi_overbought: "Overbought",
+    rsi_oversold: "Oversold",
+    rsi_neutral: "Neutral",
+    spike: "Spike",
+    short_entry_suggestion: "Short Entry Plan",
+    entry_price_label: "Entry Price",
+    take_profit_1: "Take Profit 1",
+    take_profit_2: "Take Profit 2",
+    risk_reward: "Risk/Reward",
+    sl_tp_method: "SL/TP Method",
+    leverage_suggest: "Leverage",
+    direction_label: "Direction",
+    cost_breakdown: "Cost Breakdown",
+    taker_fee: "Taker Fee (0.05%×2)",
+    funding_fee: "Est. Funding Fee",
+    total_cost: "Total Cost",
+    breakeven: "Breakeven Move",
+    net_profit_tp1: "Net Profit at TP1",
+    not_viable: "Trade not viable after fees. R:R too low. Wait for better entry.",
+    contract_plan_title: "Contract Plan",
+    risk_low_contract: "Low Risk (1-3x)",
+    risk_medium_contract: "Medium Risk (3-5x)",
+    risk_high_contract: "High Risk (5-10x)",
+    strategy_config: "Strategy Configuration",
+    strategy_desc: "Enter your observed key levels. Auto-filled from Fib analysis. Leave blank for default.",
+    support_level: "Support Level ($)",
+    resistance_level: "Resistance Level ($)",
+    max_loss_pct: "Max Loss %",
+    target_rr: "Target R:R",
+    hold_period: "Hold Period",
+    leverage_label: "Leverage",
+    notes: "Trade Notes",
+    cancel: "Cancel",
+    // OKX Trading
+    check_okx: "Check OKX",
+    exec_spot: "Execute Spot",
+    exec_contract: "Execute Contract",
+    okx_not_configured: "OKX API not configured. Set API Key in config.json",
+    okx_auth_failed: "OKX auth failed",
+    okx_network_error: "OKX connection error",
+    okx_setup_hint: "How to: Login OKX → API → Create API Key (Trade permission) → Copy key/secret/passphrase to config.json",
+    okx_check_first: "Please click 'Check OKX' first to connect",
+    confirm_exec_spot: "Confirm spot order execution?\nThis will place market orders on OKX.",
+    confirm_exec_contract: "Confirm contract order execution?\nThis will place leveraged positions with SL/TP on OKX.",
+    executing: "Executing",
+  },
+  zh: {
+    app_title: "智能投资顾问",
+    portfolio_title: "您的投资组合",
+    total_assets: "总资产 (USD)",
+    available_cash: "可用现金 (USD)",
+    risk_level: "风险等级",
+    risk_low: "低风险 (保守)",
+    risk_medium: "中等风险 (平衡)",
+    risk_high: "高风险 (激进)",
+    holdings_label: "当前持仓（逗号分隔，例如 BTC:0.05,ETH:1.2）",
+    gen_plan_btn: "生成投资计划",
+    analyze_single_btn: "分析单个币种",
+    market_overview: "市场概览",
+    demo_mode: "演示模式",
+    loading_market: "正在加载市场数据...",
+    tech_analysis: "技术分析",
+    interval_daily: "日线",
+    interval_hourly: "小时线",
+    interval_weekly: "周线",
+    analyze_btn: "开始分析",
+    analyzing: "分析中...",
+    select_coin_hint: "选择或输入币种代码，点击开始分析查看技术指标。",
+    price_chart: "价格图表",
+    run_analysis_hint: "运行分析后查看图表",
+    investment_plan: "投资计划",
+    fetching_prices: "正在获取价格...",
+    network_unavailable: "网络不可用 - 使用演示数据。尝试使用VPN/代理获取实时价格。",
+    strong_buy: "强烈买入",
+    buy: "买入",
+    weak_buy: "弱买入",
+    hold: "持有",
+    weak_sell: "弱卖出",
+    sell: "卖出",
+    strong_sell: "强烈卖出",
+    uptrend: "上升趋势",
+    downtrend: "下降趋势",
+    sideways: "横盘整理",
+    score: "评分",
+    macd: "MACD",
+    volume: "成交量",
+    fibonacci: "斐波那契",
+    trend_label: "趋势",
+    position: "位置",
+    entry_suggestion: "入场建议",
+    exit_suggestion: "离场建议",
+    zone: "区间",
+    stop_loss: "止损",
+    target: "目标价",
+    position_pct: "仓位比例",
+    fib_levels: "斐波那契水平",
+    retrace: "回撤位",
+    extend: "扩展位",
+    price: "价格",
+    market_outlook: "市场展望",
+    avg_score: "平均分",
+    reserve: "预留现金",
+    generating_plan: "正在生成投资计划...",
+    no_signals: "没有强买卖信号，建议观望。",
+    all_coins: "所有分析的币种",
+    action: "操作",
+    symbol: "币种",
+    amount: "金额",
+    entry: "入场价",
+    reason: "原因",
+    coin: "币种",
+    chg_24h: "24h涨跌",
+    error_prefix: "错误",
+    bullish: "看涨",
+    bearish: "看跌",
+    mixed: "震荡",
+    increasing: "放量",
+    decreasing: "缩量",
+    stable: "平稳",
+    near_support: "靠近支撑",
+    near_resistance: "靠近阻力",
+    mid_range: "中段区域",
+    rising: "上升",
+    falling: "下降",
+    flat: "持平",
+    scoring_basis: "评分依据",
+    score_formula: "计算公式",
+    demo_warning_title: "⚠ 演示模式",
+    demo_warning_desc: "无法连接加密货币API，价格数据为模拟数据。要获取实时数据，请配置VPN/代理。常见代理端口：Clash=7890，V2Ray=10809，Shadowsocks=1080。编辑 config.json 或设置 HTTPS_PROXY 环境变量。",
+    proxy_tip: "提示：在 config.json 中设置代理以获取实时价格。常用端口：7890 (Clash)、10809 (V2Ray)、1080 (SS)。",
+    live_data: "实时数据",
+    demo_data: "模拟数据",
+    proxy_setup_title: "⚡ 快速配置代理",
+    proxy_setup_desc: "无法连接加密货币API。请在下输入代理地址以获取实时价格：",
+    proxy_save_btn: "保存并测试",
+    proxy_quick_tip: "快捷：",
+    proxy_testing: "正在测试代理...",
+    proxy_enter_hint: "请输入代理地址（如 http://127.0.0.1:7890）",
+    no_position: "无持仓",
+    // 合约模式
+    spot_mode: "现货",
+    contract_mode: "合约",
+    long_score: "做多评分",
+    short_score: "做空评分",
+    confidence: "置信度",
+    rsi_overbought: "超买",
+    rsi_oversold: "超卖",
+    rsi_neutral: "中性",
+    spike: "放量",
+    short_entry_suggestion: "做空入场计划",
+    entry_price_label: "入场价",
+    take_profit_1: "止盈目标1",
+    take_profit_2: "止盈目标2",
+    risk_reward: "盈亏比",
+    sl_tp_method: "止损止盈方式",
+    leverage_suggest: "建议杠杆",
+    direction_label: "方向",
+    cost_breakdown: "💰 费用明细",
+    taker_fee: "手续费 (0.05%×开平)",
+    funding_fee: "预估资金费率",
+    total_cost: "总成本",
+    breakeven: "盈利所需最小涨幅",
+    net_profit_tp1: "止盈1净利润",
+    not_viable: "扣除费用后盈亏比不足，不建议执行。等待更好的入场点。",
+    contract_plan_title: "合约投资计划",
+    risk_low_contract: "低风险 (1-3倍杠杆)",
+    risk_medium_contract: "中风险 (3-5倍杠杆)",
+    risk_high_contract: "高风险 (5-10倍杠杆)",
+    strategy_config: "⚙ 策略配置",
+    strategy_desc: "填入你观察到的关键价位，留空则自动计算。支撑/阻力位已根据斐波那契预填。",
+    support_level: "支撑位 ($)",
+    resistance_level: "阻力位 ($)",
+    max_loss_pct: "最大亏损 %",
+    target_rr: "目标盈亏比",
+    hold_period: "持仓周期",
+    leverage_label: "杠杆倍数",
+    notes: "交易备注",
+    cancel: "取消",
+    // OKX交易
+    check_okx: "检测OKX",
+    exec_spot: "执行现货",
+    exec_contract: "执行合约",
+    okx_not_configured: "OKX API未配置。请在config.json中设置API密钥",
+    okx_auth_failed: "OKX验证失败",
+    okx_network_error: "OKX连接错误",
+    okx_setup_hint: "配置方法：登录欧易 → API → 创建API Key（勾选交易权限）→ 复制key/secret/passphrase到config.json",
+    okx_check_first: "请先点击'检测OKX'连接账户",
+    confirm_exec_spot: "确认执行现货订单？\n将在OKX上以市价下单。",
+    confirm_exec_contract: "确认执行合约订单？\n将在OKX上开杠杆仓位并设置止盈止损。",
+    executing: "执行中",
+  }
+};
+
+let currentLang = localStorage.getItem("appLang") || "en";
+
+function t(key) {
+  return I18N[currentLang]?.[key] || I18N["en"][key] || key;
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem("appLang", lang);
+  // Toggle active buttons
+  document.getElementById("langEN").classList.toggle("active", lang === "en");
+  document.getElementById("langZH").classList.toggle("active", lang === "zh");
+  // Update all i18n elements
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.getAttribute("data-i18n");
+    const text = t(key);
+    if (el.tagName === "OPTION") {
+      el.textContent = text;
+    } else if (el.tagName === "INPUT") {
+      el.placeholder = text;
+    } else {
+      el.textContent = text;
+    }
+  });
+  // Refresh dynamic content
+  refreshUI();
+}
+
+function refreshUI() {
+  // Re-render market overview if loaded
+  if (lastMarketData) renderMarketTable(lastMarketData);
+  // Re-render analysis if loaded
+  if (lastAnalysisData) renderAnalysis(lastAnalysisData);
+  // Re-render plan if loaded
+  if (lastPlanData) renderPlan(lastPlanData.plan, lastPlanData.analyses);
+  // Update demo badge
+  if (isDemoMode) {
+    const badge = document.getElementById("demoBadge");
+    if (badge) badge.textContent = t("demo_mode");
+  }
+}
+
+// ============================================================
+// App State
+// ============================================================
+let lastMarketData = null;
+let lastAnalysisData = null;
+let lastPlanData = null;
+
+const CRYPTO_LIST = ["BTC","ETH","SOL","BNB","XRP","DOGE","ADA","AVAX","DOT","LINK","MATIC","UNI","ATOM","LTC"];
+
+function scoreColor(s) {
+  if(s>=80) return "#00e676"; if(s>=65) return "#69f0ae"; if(s>=55) return "#b9f6ca";
+  if(s>=45) return "#ffb74d"; if(s>=35) return "#ff8a80"; if(s>=20) return "#ff5252"; return "#ff1744";
+}
+
+let isDemoMode = false;
+
+// ============================================================
+// Coin Combo Box
+// ============================================================
+function initCoinList() {
+  const list = document.getElementById("coinList");
+  list.innerHTML = "";
+  CRYPTO_LIST.forEach(c => {
+    const div = document.createElement("div");
+    div.textContent = c;
+    div.onclick = function() {
+      document.getElementById("coinInput").value = c;
+      list.classList.remove("open");
+    };
+    list.appendChild(div);
+  });
+}
+
+function toggleCoinList() {
+  const list = document.getElementById("coinList");
+  list.classList.toggle("open");
+}
+
+// Filter coin list as user types
+document.addEventListener("DOMContentLoaded", function() {
+  initCoinList();
+  const input = document.getElementById("coinInput");
+  input.addEventListener("input", function() {
+    const val = this.value.toUpperCase();
+    const list = document.getElementById("coinList");
+    const items = list.querySelectorAll("div");
+    items.forEach(item => {
+      item.style.display = item.textContent.includes(val) ? "block" : "none";
+    });
+    list.classList.add("open");
+  });
+  input.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") { analyzeCoin(); document.getElementById("coinList").classList.remove("open"); }
+  });
+  // Close dropdown on outside click
+  document.addEventListener("click", function(e) {
+    const combo = document.querySelector(".coin-combo");
+    if (combo && !combo.contains(e.target)) {
+      document.getElementById("coinList").classList.remove("open");
+    }
+  });
+});
+
+function getSelectedCoin() {
+  return document.getElementById("coinInput").value.trim().toUpperCase() || "BTC";
+}
+
+// ============================================================
+// API Calls
+// ============================================================
+async function checkStatus() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const r = await fetch("/api/status", {signal: controller.signal});
+    clearTimeout(timeout);
+    const s = await r.json();
+    if(s.demo || s.network === "offline") {
+      isDemoMode = true;
+      document.getElementById("demoBadge").style.display = "inline-block";
+      document.getElementById("demoBadge").textContent = t("demo_mode");
+      document.getElementById("proxySetupCard").style.display = "block";
+      if (s.proxy && s.proxy !== "none") {
+        document.getElementById("proxyInput").value = s.proxy;
+      }
+    } else {
+      document.getElementById("proxySetupCard").style.display = "none";
+    }
+  } catch(e) {
+    isDemoMode = true;
+    document.getElementById("demoBadge").style.display = "inline-block";
+    document.getElementById("demoBadge").textContent = t("demo_mode");
+  }
+}
+
+// ---- Proxy setup ----
+function quickProxy(port) {
+  document.getElementById("proxyInput").value = "http://127.0.0.1:" + port;
+  setProxy();
+}
+
+async function setProxy() {
+  const proxy = document.getElementById("proxyInput").value.trim();
+  const msgEl = document.getElementById("proxyMsg");
+  if (!proxy) {
+    msgEl.innerHTML = "<span style='color:#ff9800;'>"+t("proxy_enter_hint")+"</span>";
+    return;
+  }
+  msgEl.innerHTML = "<span style='color:#ffb74d;'>"+t("proxy_testing")+"</span>";
+  try {
+    const r = await fetch("/api/proxy", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({proxy: proxy})
+    });
+    const result = await r.json();
+    if (result.success) {
+      msgEl.innerHTML = "<span style='color:#69f0ae;'>✅ "+result.message+"</span>";
+      // Reload market data with new proxy
+      setTimeout(function() {
+        isDemoMode = false;
+        document.getElementById("proxySetupCard").style.display = "none";
+        document.getElementById("demoBadge").style.display = "none";
+        loadMarketOverview();
+      }, 1000);
+    } else {
+      msgEl.innerHTML = "<span style='color:#ef5350;'>❌ "+result.message+"</span>";
+    }
+  } catch(e) {
+    msgEl.innerHTML = "<span style='color:#ef5350;'>❌ "+t("error_prefix")+": "+e.message+"</span>";
+  }
+}
+
+async function loadMarketOverview() {
+  const el = document.getElementById("marketContent");
+  el.innerHTML = "<div class='spinner'></div><p>"+t("fetching_prices")+"</p>";
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch("/api/batch_quotes?symbols="+CRYPTO_LIST.join(","), {signal: controller.signal});
+    clearTimeout(timeout);
+    const data = await r.json();
+    lastMarketData = data;
+    renderMarketTable(data);
+  } catch(e) {
+    el.innerHTML = "<p style='color:#ff9800;'>⏳ "+t("network_unavailable")+"</p>";
+  }
+}
+
+function renderMarketTable(data) {
+  const el = document.getElementById("marketContent");
+  const isDemo = isDemoMode;
+  const sourceLabel = isDemo ? '<span style="color:#ff9800;font-size:11px;"> ('+t("demo_data")+')</span>' : (data._source ? '<span style="color:#69f0ae;font-size:11px;"> ('+t("live_data")+': '+data._source+')</span>' : '');
+  let html = "<table><tr><th>"+t("coin")+"</th><th>"+t("price")+"</th><th>"+t("chg_24h")+"</th></tr>";
+  let anyDemo = false;
+  for(const c of CRYPTO_LIST) {
+    const d = data[c] || {};
+    if(d.error) continue;
+    if (d.demo) anyDemo = true;
+    const cls = (d.change_pct||0)>=0?"price-up":"price-down";
+    const dm = d.demo ? " *" : "";
+    html += "<tr><td><b>"+c+"</b></td><td>$"+d.price?.toLocaleString()+dm+"</td><td class='"+cls+"'>"+(d.change_pct||0).toFixed(2)+"%</td></tr>";
+  }
+  html += "</table>";
+  html += "<div style='margin-top:8px;font-size:11px;color:#8090b0;'>";
+  html += (anyDemo || isDemo) ? t("demo_warning_desc") : t("proxy_tip");
+  html += "</div>";
+  el.innerHTML = html;
+}
+
+let isContractMode = false;
+let strategyConfig = {};  // User's strategy input
+
+function pickTag(el, group, val) {
+  document.querySelectorAll('#leverageTags .tag').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  strategyConfig[group] = val;
+}
+
+function closeModal() {
+  document.getElementById("strategyModal").classList.remove("show");
+}
+
+function openStrategyModal() {
+  document.getElementById("strategyModal").classList.add("show");
+  // Pre-fill support/resistance from current analysis if available
+  if (lastAnalysisData) {
+    const ind = lastAnalysisData.indicators || {};
+    const fib = ind.fibonacci || lastAnalysisData.fibonacci || {};
+    if (fib.support && fib.support[1]) {
+      document.getElementById("supLevel").value = Math.round(fib.support[1]);
+    }
+    if (fib.resistance && fib.resistance[1]) {
+      document.getElementById("resLevel").value = Math.round(fib.resistance[1]);
+    }
+  }
+}
+
+function submitStrategy() {
+  strategyConfig.support = parseFloat(document.getElementById("supLevel").value) || 0;
+  strategyConfig.resistance = parseFloat(document.getElementById("resLevel").value) || 0;
+  strategyConfig.max_loss = parseFloat(document.getElementById("maxLoss").value) || 2;
+  strategyConfig.target_rr = parseFloat(document.getElementById("targetRR").value) || 2;
+  strategyConfig.hold_periods = parseInt(document.getElementById("holdPeriod").value) || 24;
+  strategyConfig.notes = document.getElementById("tradeNotes").value.trim();
+  strategyConfig.leverage = parseInt(strategyConfig.leverage || "3");
+  strategyConfig.mode = isContractMode ? "contract" : "spot";
+  closeModal();
+  doGeneratePlan();
+}
+
+function toggleHoldings() {
+  const checked = document.getElementById("noHoldings").checked;
+  const input = document.getElementById("holdings");
+  if (checked) {
+    input.value = "";
+    input.disabled = true;
+    input.placeholder = "";
+  } else {
+    input.disabled = false;
+    input.placeholder = "BTC:0.05,ETH:1.2";
+  }
+}
+
+function switchMode(mode) {
+  isContractMode = (mode === "contract");
+  // Update tab styles
+  document.getElementById("modeSpot").style.background = isContractMode ? "#252d4a" : "linear-gradient(135deg,#1e88e5,#26c6da)";
+  document.getElementById("modeSpot").style.color = isContractMode ? "#8090b0" : "#fff";
+  document.getElementById("modeContract").style.background = isContractMode ? "linear-gradient(135deg,#ff9800,#ef5350)" : "#252d4a";
+  document.getElementById("modeContract").style.color = isContractMode ? "#fff" : "#8090b0";
+  // Default interval for contracts
+  if (isContractMode) {
+    document.getElementById("intervalSelect").value = "1h";
+  } else {
+    document.getElementById("intervalSelect").value = "1d";
+  }
+  // Update risk level options
+  updateRiskOptions();
+  // Re-analyze if data exists
+  if (lastAnalysisData) analyzeCoin();
+  // Update plan card title
+  document.getElementById("planCardTitle").textContent = isContractMode ? t("contract_plan_title") : t("investment_plan");
+}
+
+function updateRiskOptions() {
+  const sel = document.getElementById("riskLevel");
+  if (isContractMode) {
+    sel.innerHTML = '<option value="low" data-i18n="risk_low_contract">低风险 (1-3x)</option><option value="medium" selected data-i18n="risk_medium_contract">中风险 (3-5x)</option><option value="high" data-i18n="risk_high_contract">高风险 (5-10x)</option>';
+  } else {
+    sel.innerHTML = '<option value="low" data-i18n="risk_low">Low (Conservative)</option><option value="medium" selected data-i18n="risk_medium">Medium (Balanced)</option><option value="high" data-i18n="risk_high">High (Aggressive)</option>';
+  }
+  document.querySelectorAll("[data-i18n]").forEach(function(el) {
+    const key = el.getAttribute("data-i18n");
+    if (el.tagName === "OPTION") el.textContent = t(key);
+  });
+}
+
+async function analyzeCoin() {
+  const sym = getSelectedCoin();
+  const interval = document.getElementById("intervalSelect").value;
+  document.getElementById("analysisLoading").style.display = "block";
+  document.getElementById("analysisContent").innerHTML = "";
+  try {
+    const endpoint = isContractMode ? "/api/contract/" : "/api/analyze/";
+    const r = await fetch(endpoint + sym + "?interval=" + interval);
+    const d = await r.json();
+    if(d.error) { document.getElementById("analysisContent").innerHTML = "<p style='color:#ef5350;'>"+d.error+"</p>"; return; }
+    lastAnalysisData = d;
+    if (isContractMode) {
+      renderContractAnalysis(d);
+    } else {
+      renderAnalysis(d);
+    }
+    renderChart(d);
+  } catch(e) {
+    document.getElementById("analysisContent").innerHTML = "<p style='color:#ef5350;'>"+t("error_prefix")+": "+e.message+"</p>";
+  } finally {
+    document.getElementById("analysisLoading").style.display = "none";
+  }
+}
+
+function renderScoreDetails(details, indicatorName) {
+  if (!details || !details.length) return "";
+  let html = "<div style='margin-top:6px;font-size:12px;color:#8090b0;'>";
+  html += "<b>"+t("scoring_basis")+":</b><br>";
+  details.forEach(function(item, i) {
+    const sign = item.impact > 0 ? "+" : "";
+    const color = item.impact > 0 ? "#26c6da" : item.impact < 0 ? "#ef5350" : "#8090b0";
+    const desc = currentLang === "zh" ? item.desc_zh : item.desc_en;
+    html += "<span style='color:"+color+";'>" + sign + item.impact + "</span> ";
+    html += desc + "<br>";
+  });
+  html += "</div>";
+  return html;
+}
+
+function renderAnalysis(d) {
+  const sn = t(d.signal) || d.signal;
+  const sc = d.score;
+  let html = "";
+  html += "<div style='display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;'>";
+  html += "<b style='font-size:1.2em;'>"+d.symbol+"</b>";
+  html += "<span style='font-size:1.1em;'>$"+d.price?.toLocaleString()+"</span>";
+  const bcls = d.signal.includes("buy")?"buy":d.signal.includes("sell")?"sell":"hold";
+  html += "<span class='badge badge-"+bcls+"'>"+sn+"</span>";
+  html += "<span style='color:#8090b0;'>"+t("score")+": "+sc+"/100</span>";
+  html += "</div>";
+  html += "<div class='score-bar'><div class='score-fill' style='width:"+sc+"%;background:"+scoreColor(sc)+";'></div></div>";
+
+  // Weighted score breakdown
+  html += "<div style='font-size:12px;color:#8090b0;margin:4px 0 8px 0;'>";
+  html += t("score_formula") + ": " + d.macd.strength + "×0.35 + " + d.volume.score + "×0.35 + " + d.fibonacci.score + "×0.30 = " + sc;
+  html += "</div>";
+
+  html += "<div class='grid3' style='margin:12px 0;'>";
+  // MACD
+  html += "<div>";
+  html += "<b style='color:#4fc3f7;'>"+t("macd")+"</b><br>";
+  html += t("trend_label")+": "+t(d.macd.trend)+"<br>";
+  html += t("score")+": <b style='color:"+scoreColor(d.macd.strength)+";'>"+d.macd.strength+"</b>";
+  html += renderScoreDetails(d.macd.score_details, "MACD");
+  html += "</div>";
+  // Volume
+  html += "<div>";
+  html += "<b style='color:#4fc3f7;'>"+t("volume")+"</b><br>";
+  html += t("trend_label")+": "+t(d.volume.trend)+"<br>";
+  html += t("score")+": <b style='color:"+scoreColor(d.volume.score)+";'>"+d.volume.score+"</b>";
+  html += renderScoreDetails(d.volume.score_details, "Volume");
+  html += "</div>";
+  // Fibonacci
+  html += "<div>";
+  html += "<b style='color:#4fc3f7;'>"+t("fibonacci")+"</b><br>";
+  html += t("position")+": "+t(d.fibonacci.position)+"<br>";
+  html += t("score")+": <b style='color:"+scoreColor(d.fibonacci.score)+";'>"+d.fibonacci.score+"</b>";
+  html += renderScoreDetails(d.fibonacci.score_details, "Fibonacci");
+  html += "</div>";
+  html += "</div>";
+
+  if(d.entry) {
+    html += "<div style='background:rgba(38,198,218,0.08);padding:12px;border-radius:8px;margin:8px 0;'>";
+    html += "<b style='color:#26c6da;'>"+t("entry_suggestion")+"</b><br>";
+    html += t("zone")+": "+d.entry.zone+"<br>"+t("stop_loss")+": "+d.entry.stop_loss+"<br>";
+    html += t("target")+": "+d.entry.target_1+"<br>"+t("position_pct")+": "+d.entry.position_pct+"%";
+    html += "</div>";
+  }
+  if(d.exit_plan) {
+    html += "<div style='background:rgba(239,83,80,0.08);padding:12px;border-radius:8px;margin:8px 0;'>";
+    html += "<b style='color:#ef5350;'>"+t("exit_suggestion")+"</b><br>";
+    html += t("stop_loss")+": "+d.exit_plan.stop_loss+"<br>"+t("target")+": "+d.exit_plan.target;
+    html += "</div>";
+  }
+  if(d.warnings && d.warnings.length) {
+    d.warnings.forEach(function(w) { html += "<div class='warning'>"+w+"</div>"; });
+  }
+  if(d.fibonacci.retracement) {
+    html += "<details style='margin-top:8px;'><summary style='cursor:pointer;color:#4fc3f7;'>"+t("fib_levels")+"</summary>";
+    html += "<table><tr><th>"+t("retrace")+"</th><th>"+t("price")+"</th><th>"+t("extend")+"</th><th>"+t("price")+"</th></tr>";
+    var rk = Object.keys(d.fibonacci.retracement).sort(function(a,b){return parseFloat(a)-parseFloat(b);});
+    var ek = Object.keys(d.fibonacci.extension).sort(function(a,b){return parseFloat(a)-parseFloat(b);});
+    for(var i=0;i<Math.max(rk.length,ek.length);i++) {
+      html += "<tr>";
+      html += "<td>"+(rk[i]||"")+"</td><td>"+(d.fibonacci.retracement[rk[i]]||"")+"</td>";
+      html += "<td>"+(ek[i]||"")+"</td><td>"+(d.fibonacci.extension[ek[i]]||"")+"</td>";
+      html += "</tr>";
+    }
+    html += "</table></details>";
+  }
+  document.getElementById("analysisContent").innerHTML = html;
+}
+
+function renderContractAnalysis(d) {
+  const ind = d.indicators || {};
+  let html = "";
+
+  // Header: symbol + price + direction badge
+  html += "<div style='display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;'>";
+  html += "<b style='font-size:1.2em;'>"+d.symbol+"</b>";
+  html += "<span style='font-size:1.1em;'>$"+d.price?.toLocaleString()+"</span>";
+  const dir = d.direction;
+  const dirLabel = currentLang === "zh" ? (d.signal_cn || dir) : (d.signal_en || dir);
+  const dirClass = dir === "long" ? "direction-long" : (dir === "short" ? "direction-short" : "direction-hold");
+  html += "<span class='direction-badge "+dirClass+"'>"+dirLabel+"</span>";
+  html += "<span style='color:#8090b0;font-size:13px;'>"+t("confidence")+": "+(d.confidence||"none")+"</span>";
+  html += "</div>";
+
+  // Dual scores
+  html += "<div class='score-dual'>";
+  html += "<div class='score-col long'><div style='font-size:11px;color:#8090b0;'>"+t("long_score")+"</div>";
+  html += "<div style='font-size:1.4em;font-weight:bold;color:#00e676;'>"+d.long_score+"</div></div>";
+  html += "<div class='score-col short'><div style='font-size:11px;color:#8090b0;'>"+t("short_score")+"</div>";
+  html += "<div style='font-size:1.4em;font-weight:bold;color:#ef5350;'>"+d.short_score+"</div></div>";
+  html += "</div>";
+
+  // Scoring formula
+  html += "<div style='font-size:11px;color:#8090b0;margin:4px 0 10px 0;'>";
+  const w = {macd:0.25, rsi:0.20, volume:0.20, bollinger:0.20, fibonacci:0.15};
+  html += t("score_formula") + ": MACD"+(ind.macd?.strength||0)+"×0.25 + RSI"+(ind.rsi?.score||0)+"×0.20 + " +
+    t("volume")+(ind.volume?.score||0)+"×0.20 + BB"+(ind.bollinger?.score||0)+"×0.20 + Fib"+(ind.fibonacci?.score||0)+"×0.15";
+  html += "</div>";
+
+  // 5 indicators grid
+  html += "<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0;'>";
+  // MACD
+  html += "<div style='background:#252d4a;padding:8px;border-radius:6px;font-size:11px;'>";
+  html += "<b style='color:#4fc3f7;'>MACD</b><br>";
+  html += "<span style='color:"+scoreColor(ind.macd?.strength||50)+";font-weight:bold;'>"+(ind.macd?.strength||0)+"</span>";
+  html += "<br><span style='color:#8090b0;'>"+t(ind.macd?.trend||"bullish")+"</span>";
+  html += "</div>";
+  // RSI
+  html += "<div style='background:#252d4a;padding:8px;border-radius:6px;font-size:11px;'>";
+  html += "<b style='color:#4fc3f7;'>RSI</b><br>";
+  const rsiVal = ind.rsi?.rsi || 50;
+  const rsiColor = rsiVal > 70 ? "#ef5350" : rsiVal < 30 ? "#00e676" : "#e0e0e0";
+  html += "<span style='color:"+rsiColor+";font-weight:bold;'>"+rsiVal+"</span>";
+  html += "<br><span style='color:#8090b0;'>"+(rsiVal>70?t("rsi_overbought"):rsiVal<30?t("rsi_oversold"):t("rsi_neutral"))+"</span>";
+  html += "</div>";
+  // Volume
+  html += "<div style='background:#252d4a;padding:8px;border-radius:6px;font-size:11px;'>";
+  html += "<b style='color:#4fc3f7;'>"+t("volume")+"</b><br>";
+  html += "<span style='color:"+scoreColor(ind.volume?.score||50)+";font-weight:bold;'>"+(ind.volume?.score||0)+"</span>";
+  html += "<br><span style='color:#8090b0;'>"+(ind.volume?.is_spike ? "⚠"+t("spike") : t(ind.volume?.trend||"stable"))+"</span>";
+  html += "</div>";
+  // Bollinger
+  html += "<div style='background:#252d4a;padding:8px;border-radius:6px;font-size:11px;'>";
+  html += "<b style='color:#4fc3f7;'>BB</b><br>";
+  html += "<span style='color:"+scoreColor(ind.bollinger?.score||50)+";font-weight:bold;'>"+(ind.bollinger?.score||0)+"</span>";
+  html += "<br><span style='color:#8090b0;'>pct_b:"+(ind.bollinger?.pct_b||0).toFixed(2)+"</span>";
+  html += "</div>";
+  // ATR
+  html += "<div style='background:#252d4a;padding:8px;border-radius:6px;font-size:11px;'>";
+  html += "<b style='color:#4fc3f7;'>ATR</b><br>";
+  html += "<span style='color:#e0e0e0;font-weight:bold;'>"+(ind.atr?.atr||0).toFixed(2)+"</span>";
+  html += "<br><span style='color:#8090b0;'>"+t(ind.atr?.volatility||"medium")+"</span>";
+  html += "</div>";
+  html += "</div>";
+
+  // Score details for each indicator
+  html += "<details style='margin-top:8px;'><summary style='cursor:pointer;color:#4fc3f7;font-size:13px;'>"+t("scoring_basis")+" ▼</summary>";
+  html += "<div style='font-size:12px;color:#8090b0;margin-top:6px;'>";
+  ["macd","rsi","volume","bollinger","fibonacci"].forEach(function(name) {
+    const details = ind[name]?.score_details || [];
+    if (details.length) {
+      html += "<b>"+name.toUpperCase()+":</b> ";
+      details.forEach(function(item) {
+        const sign = item.impact_l > 0 ? "+" : "";
+        const color = item.impact_l > 0 ? "#26c6da" : item.impact_l < 0 ? "#ef5350" : "#8090b0";
+        const desc = currentLang === "zh" ? item.desc_zh : item.desc_en;
+        html += "<span style='color:"+color+";'>" + sign + (item.impact_l||0) + "</span> " + desc + "; ";
+      });
+      html += "<br>";
+    }
+  });
+  html += "</div></details>";
+
+  // Entry plan
+  if (d.entry && d.direction !== "hold") {
+    const isLong = d.direction === "long";
+    const cardCls = isLong ? "long-entry" : "short-entry";
+    const cardColor = isLong ? "#00e676" : "#ef5350";
+    html += "<div class='entry-card "+cardCls+"'>";
+    html += "<b style='color:"+cardColor+";'>"+(isLong ? t("entry_suggestion") : t("short_entry_suggestion"))+"</b><br>";
+    html += "<table style='margin-top:8px;font-size:13px;'>";
+    html += "<tr><td style='color:#8090b0;'>"+t("entry_price_label")+"</td><td><b>$"+d.entry.price?.toLocaleString()+"</b></td></tr>";
+    html += "<tr><td style='color:#8090b0;'>"+t("stop_loss")+"</td><td style='color:#ef5350;'><b>$"+d.entry.stop_loss?.toLocaleString()+"</b> <span style='font-size:11px;color:#8090b0;'>(-"+d.entry.stop_loss_pct+"% <i>"+(d.entry.stop_loss_source||"")+"</i>)</span></td></tr>";
+    html += "<tr><td style='color:#8090b0;'>"+t("take_profit_1")+"</td><td style='color:#00e676;'><b>$"+d.entry.take_profit_1?.toLocaleString()+"</b> <span style='font-size:11px;color:#8090b0;'>"+(isLong?'+':'')+d.entry.take_profit_1_pct+"%</span></td></tr>";
+    if (d.entry.take_profit_2) {
+      html += "<tr><td style='color:#8090b0;'>"+t("take_profit_2")+"</td><td style='color:#00e676;'><b>$"+d.entry.take_profit_2?.toLocaleString()+"</b></td></tr>";
+    }
+    html += "<tr><td style='color:#8090b0;'>"+t("risk_reward")+"</td><td><b>1:"+d.entry.risk_reward+"</b> <span style='font-size:11px;color:#8090b0;'>(净盈亏比 1:"+d.entry.net_rr+")</span></td></tr>";
+    html += "</table>";
+    // Cost breakdown
+    if (d.costs) {
+      html += "<details style='margin-top:6px;font-size:12px;'><summary style='color:#ff9800;cursor:pointer;'>💰 "+t("cost_breakdown")+"</summary>";
+      html += "<div style='color:#8090b0;margin-top:4px;'>";
+      html += t("taker_fee")+": $"+d.costs.total_fee_usd+" ("+d.costs.total_fee_pct+"%)<br>";
+      html += t("funding_fee")+": $"+d.costs.total_funding_usd+" ("+d.costs.funding_periods+"x8h@"+d.costs.funding_rate_est+"%/次)<br>";
+      html += "<b>"+t("total_cost")+": $"+d.costs.total_cost_usd+"</b><br>";
+      html += t("breakeven")+": "+d.costs.breakeven_move_pct+"%<br>";
+      html += t("net_profit_tp1")+": <b style='color:#00e676;'>$"+d.costs.net_profit_usd+"</b><br>";
+      html += "</div></details>";
+    }
+    // Viability warning
+    if (d.viable === false) {
+      html += "<div style='background:rgba(239,83,80,0.1);border:1px solid #ef5350;border-radius:6px;padding:8px;margin-top:8px;font-size:12px;color:#ef5350;'>⚠ "+t("not_viable")+"</div>";
+    }
+    html += "</div>";
+  }
+
+  // Warnings
+  if (d.warnings && d.warnings.length) {
+    d.warnings.forEach(function(w) { html += "<div class='warning'>⚠ "+w+"</div>"; });
+  }
+
+  // Fib levels
+  if (ind.fibonacci?.retracement) {
+    html += "<details style='margin-top:8px;'><summary style='cursor:pointer;color:#4fc3f7;'>"+t("fib_levels")+"</summary>";
+    html += "<table><tr><th>"+t("retrace")+"</th><th>"+t("price")+"</th><th>"+t("extend")+"</th><th>"+t("price")+"</th></tr>";
+    var rk = Object.keys(ind.fibonacci.retracement).sort(function(a,b){return parseFloat(a)-parseFloat(b);});
+    var ek = Object.keys(ind.fibonacci.extension).sort(function(a,b){return parseFloat(a)-parseFloat(b);});
+    for(var i=0;i<Math.max(rk.length,ek.length);i++) {
+      html += "<tr><td>"+(rk[i]||"")+"</td><td>"+(ind.fibonacci.retracement[rk[i]]||"")+"</td>";
+      html += "<td>"+(ek[i]||"")+"</td><td>"+(ind.fibonacci.extension[ek[i]]||"")+"</td></tr>";
+    }
+    html += "</table></details>";
+  }
+
+  document.getElementById("analysisContent").innerHTML = html;
+}
+
+function renderChart(d) {
+  if(!d.chart) return;
+  var trace1 = {x:d.chart.dates, y:d.chart.prices, type:"scatter", mode:"lines", name:"Price", line:{color:"#4fc3f7",width:2}};
+  var layout = {
+    paper_bgcolor:"#1a1f35", plot_bgcolor:"#1a1f35", font:{color:"#8090b0"},
+    xaxis:{gridcolor:"#252d4a"}, yaxis:{gridcolor:"#252d4a"},
+    margin:{l:50,r:20,t:20,b:40}, height:330,
+  };
+  Plotly.newPlot("chartContainer", [trace1], layout, {displayModeBar:false});
+}
+
+async function generatePlan() {
+  openStrategyModal();
+}
+
+async function doGeneratePlan() {
+  var total = document.getElementById("totalAssets").value;
+  var cash = document.getElementById("cash").value;
+  var risk = document.getElementById("riskLevel").value;
+  var holdingsRaw = document.getElementById("holdings").value;
+  var holdings = holdingsRaw.split(",").filter(function(x){return x;}).map(function(x){
+    var parts = x.split(":"); return {symbol:parts[0]?.trim(),amount:parseFloat(parts[1])||0};
+  });
+  var mode = strategyConfig.mode || (isContractMode ? "contract" : "spot");
+  document.getElementById("planCard").style.display = "block";
+  document.getElementById("planContent").innerHTML = "<div class='loading'><div class='spinner'></div><p>"+t("generating_plan")+"</p></div>";
+  try {
+    var r = await fetch("/api/plan", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        portfolio:{total_assets:total,cash:cash,risk_level:risk,holdings:holdings},
+        symbols:["BTC","ETH","SOL","BNB","XRP","DOGE","ADA","AVAX","DOT","LINK"],
+        mode: mode,
+        strategy: strategyConfig
+      })
+    });
+    var data = await r.json();
+    lastPlanData = data;
+    if (data.mode === "contract") {
+      renderContractPlan(data.plan, data.analyses);
+    } else {
+      renderPlan(data.plan, data.analyses);
+    }
+  } catch(e) {
+    document.getElementById("planContent").innerHTML = "<p style='color:#ef5350;'>"+t("error_prefix")+": "+e.message+"</p>";
+  }
+}
+
+function renderPlan(plan, analyses) {
+  var html = "";
+  html += "<div style='margin-bottom:16px;'>";
+  var oc = plan.outlook==="bullish"?"#26c6da":plan.outlook==="bearish"?"#ef5350":"#ffb74d";
+  html += "<b style='font-size:1.1em;'>"+t("market_outlook")+": </b>";
+  var outlookLabel = currentLang === "zh" ? (plan.outlook_cn || t(plan.outlook)) : t(plan.outlook);
+  html += "<span style='color:"+oc+";'>"+outlookLabel+"</span>";
+  html += " | "+t("avg_score")+": <b>"+plan.avg_score+"/100</b> | "+t("reserve")+": <b>$"+plan.reserve?.toLocaleString()+"</b>";
+  html += " | "+t("risk_level")+": <b>"+(plan.risk_label || plan.risk_level)+"</b>";
+  html += "</div>";
+  html += "<p style='color:#c0c8d0;margin-bottom:16px;line-height:1.6;'>"+plan.summary+"</p>";
+
+  if(plan.allocations && plan.allocations.length) {
+    html += "<table><tr><th>"+t("action")+"</th><th>"+t("symbol")+"</th><th>"+t("amount")+"</th><th>"+t("entry")+"</th><th>"+t("stop_loss")+"</th><th>"+t("score")+"</th><th>"+t("reason")+"</th></tr>";
+    for(var i=0;i<plan.allocations.length;i++) {
+      var a = plan.allocations[i];
+      var reasonText = a.reason || a.reason_short || "";
+      // Truncate for table display, show full on click
+      var reasonId = "reason_"+i;
+      var shortReason = reasonText.length > 80 ? reasonText.substring(0, 80) + "..." : reasonText;
+      html += "<tr>";
+      html += "<td><span class='badge badge-"+(a.action==="buy"?"buy":"sell")+"'>"+t(a.action)?.toUpperCase()+"</span></td>";
+      html += "<td><b>"+a.symbol+"</b></td>";
+      html += "<td>$"+(a.alloc_amount?.toLocaleString()||a.amount||"-")+"</td>";
+      html += "<td>"+(a.entry_price||"-")+"</td>";
+      html += "<td>"+(a.stop_loss||"-")+"</td>";
+      html += "<td style='color:"+scoreColor(a.score||50)+";'>"+(a.score||"-")+"</td>";
+      html += "<td style='font-size:12px;color:#c0c8d0;max-width:300px;'>";
+      html += "<div style='white-space:pre-line;line-height:1.5;'>"+reasonText+"</div>";
+      html += "</td>";
+      html += "</tr>";
+    }
+    html += "</table>";
+  } else {
+    html += "<p style='color:#8090b0;'>"+t("no_signals")+"</p>";
+  }
+
+  if(analyses && analyses.length) {
+    html += "<h4 style='margin:20px 0 10px 0;color:#4fc3f7;'>"+t("all_coins")+"</h4>";
+    html += "<table><tr><th>#</th><th>"+t("symbol")+"</th><th>"+t("price")+"</th><th>"+t("action")+"</th><th>"+t("score")+"</th><th>"+t("macd")+"</th><th>"+t("volume")+"</th><th>"+t("fibonacci")+"</th></tr>";
+    analyses.forEach(function(a,i) {
+      html += "<tr>";
+      html += "<td>"+(i+1)+"</td><td><b>"+a.symbol+"</b></td>";
+      html += "<td>$"+a.price?.toLocaleString()+"</td>";
+      html += "<td><span class='signal-"+a.signal+"'>"+t(a.signal)+"</span></td>";
+      html += "<td style='color:"+scoreColor(a.score)+";font-weight:bold;'>"+a.score+"</td>";
+      html += "<td>"+a.macd?.strength+"</td><td>"+a.volume?.score+"</td><td>"+a.fibonacci?.score+"</td>";
+      html += "</tr>";
+    });
+    html += "</table>";
+  }
+  document.getElementById("planContent").innerHTML = html;
+}
+
+function renderContractPlan(plan, analyses) {
+  var html = "";
+  // Header: outlook + scores + leverage
+  html += "<div style='margin-bottom:16px;'>";
+  var oc = plan.outlook==="bullish"?"#00e676":plan.outlook==="bearish"?"#ef5350":"#ffb74d";
+  html += "<b style='font-size:1.1em;'>"+t("market_outlook")+": </b>";
+  html += "<span style='color:"+oc+";'>"+(plan.outlook_cn || t(plan.outlook))+"</span>";
+  html += " | "+t("long_score")+": <b style='color:#00e676;'>"+plan.avg_long_score+"</b>";
+  html += " | "+t("short_score")+": <b style='color:#ef5350;'>"+plan.avg_short_score+"</b>";
+  html += " | "+t("leverage_suggest")+": <b>"+(plan.leverage_suggestion||"3-5x")+"</b>";
+  html += " | "+t("reserve")+": <b>$"+plan.reserve?.toLocaleString()+"</b>";
+  html += "</div>";
+  html += "<p style='color:#c0c8d0;margin-bottom:16px;line-height:1.6;'>"+plan.summary+"</p>";
+
+  // Allocation table
+  if(plan.allocations && plan.allocations.length) {
+    html += "<table><tr><th>"+t("action")+"</th><th>"+t("symbol")+"</th><th>"+t("amount")+"</th><th>"+t("entry_price_label")+"</th><th>"+t("stop_loss")+"</th><th>TP1/TP2</th><th>R:R</th><th>"+t("score")+"</th><th>"+t("reason")+"</th></tr>";
+    for(var i=0;i<plan.allocations.length;i++) {
+      var a = plan.allocations[i];
+      var isLong = a.direction === "long";
+      var badgeCls = isLong ? "direction-long" : "direction-short";
+      var badgeText = a.action_label || (isLong ? "LONG" : "SHORT");
+      html += "<tr>";
+      html += "<td><span class='direction-badge "+badgeCls+"' style='font-size:11px;'>"+badgeText+"</span></td>";
+      html += "<td><b>"+a.symbol+"</b></td>";
+      html += "<td>$"+(a.alloc_amount?.toLocaleString()||a.amount||"-")+"</td>";
+      html += "<td>$"+(a.entry_price?.toLocaleString()||"-")+"</td>";
+      html += "<td style='color:#ef5350;'>$"+(a.stop_loss?.toLocaleString()||"-")+"</td>";
+      html += "<td><span style='color:#00e676;'>$"+(a.take_profit_1?.toLocaleString()||"-")+"</span> / $"+(a.take_profit_2?.toLocaleString()||"-")+"</td>";
+      html += "<td><b>1:"+(a.risk_reward||"-")+"</b></td>";
+      html += "<td>";
+      html += "<span style='color:#00e676;'>"+a.long_score+"</span>/<span style='color:#ef5350;'>"+a.short_score+"</span>";
+      html += "</td>";
+      html += "<td style='font-size:12px;color:#c0c8d0;max-width:300px;'>";
+      html += "<div style='white-space:pre-line;line-height:1.5;'>"+(a.reason||a.reason_short||"")+"</div>";
+      html += "</td>";
+      html += "</tr>";
+    }
+    html += "</table>";
+  } else {
+    html += "<p style='color:#8090b0;'>"+t("no_signals")+"</p>";
+  }
+
+  // All analyzed coins summary
+  if(analyses && analyses.length) {
+    html += "<h4 style='margin:20px 0 10px 0;color:#4fc3f7;'>"+t("all_coins")+"</h4>";
+    html += "<table><tr><th>#</th><th>"+t("symbol")+"</th><th>"+t("price")+"</th><th>"+t("direction_label")+"</th><th>L/S Score</th><th>RSI</th><th>ATR</th><th>BB</th></tr>";
+    analyses.forEach(function(a,i) {
+      var isL = a.direction === "long";
+      var dirBadge = isL ? "direction-long" : (a.direction === "short" ? "direction-short" : "direction-hold");
+      var dirLabel = currentLang === "zh" ? (a.signal_cn || a.direction) : (a.signal_en || a.direction);
+      var ind = a.indicators || {};
+      html += "<tr>";
+      html += "<td>"+(i+1)+"</td><td><b>"+a.symbol+"</b></td>";
+      html += "<td>$"+a.price?.toLocaleString()+"</td>";
+      html += "<td><span class='direction-badge "+dirBadge+"' style='font-size:11px;'>"+dirLabel+"</span></td>";
+      html += "<td><span style='color:#00e676;'>"+a.long_score+"</span>/<span style='color:#ef5350;'>"+a.short_score+"</span></td>";
+      html += "<td>"+(ind.rsi?.rsi||"-")+"</td>";
+      html += "<td>"+(ind.atr?.atr||"-")+"</td>";
+      html += "<td>"+(ind.bollinger?.pct_b?.toFixed(2)||"-")+"</td>";
+      html += "</tr>";
+    });
+    html += "</table>";
+  }
+  document.getElementById("planContent").innerHTML = html;
+}
+
+function analyzeSingle() {
+  document.getElementById("planCard").style.display = "none";
+  // Scroll to analysis section
+  document.getElementById("coinInput").scrollIntoView({behavior:"smooth",block:"center"});
+  document.getElementById("coinInput").focus();
+  analyzeCoin();
+}
+
+// ============================================================
+// Init
+// ============================================================
+(function init() {
+  // Set initial language
+  if (currentLang === "zh") {
+    document.getElementById("langEN").classList.remove("active");
+    document.getElementById("langZH").classList.add("active");
+  }
+  // Apply translations
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.getAttribute("data-i18n");
+    const text = t(key);
+    if (el.tagName === "OPTION") {
+      el.textContent = text;
+    } else if (el.tagName === "INPUT") {
+      el.placeholder = text;
+    } else {
+      el.textContent = text;
+    }
+  });
+  // Init mode tabs
+  switchMode("spot");
+  checkStatus();
+  loadMarketOverview();
+})();
+</script>
+</body>
+</html>
